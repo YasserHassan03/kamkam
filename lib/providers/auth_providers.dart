@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/auth_repository.dart';
 import 'repository_providers.dart';
@@ -54,7 +55,15 @@ class AuthNotifier extends Notifier<AsyncValue<AuthUser?>> {
       return Right(result.user!);
     } else {
       final error = result.error ?? 'Sign in failed';
-      state = AsyncValue.error(error, StackTrace.current);
+      debugPrint('AuthNotifier: Sign in failed with error: $error');
+      // Keep state as loading for longer to prevent router from redirecting
+      // This gives the UI time to show the error dialog before any redirect happens
+      // The UI will handle showing the error, then we'll reset the state
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (state.isLoading) {
+          state = const AsyncValue.data(null);
+        }
+      });
       return Left(error);
     }
   }

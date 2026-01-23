@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/team.dart';
 import '../../../providers/team_providers.dart';
 import '../../../providers/tournament_providers.dart';
+import '../../../providers/repository_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Form for creating/editing teams
@@ -25,9 +27,6 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _shortNameController = TextEditingController();
-  final _logoUrlController = TextEditingController();
-  final _primaryColorController = TextEditingController();
-  final _secondaryColorController = TextEditingController();
   
   bool _isLoading = false;
   bool _isInitialized = false;
@@ -38,9 +37,6 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
   void dispose() {
     _nameController.dispose();
     _shortNameController.dispose();
-    _logoUrlController.dispose();
-    _primaryColorController.dispose();
-    _secondaryColorController.dispose();
     super.dispose();
   }
 
@@ -48,9 +44,6 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
     if (_isInitialized) return;
     _nameController.text = team.name;
     _shortNameController.text = team.shortName ?? '';
-    _logoUrlController.text = team.logoUrl ?? '';
-    _primaryColorController.text = team.primaryColor ?? '';
-    _secondaryColorController.text = team.secondaryColor ?? '';
     _isInitialized = true;
   }
 
@@ -61,51 +54,76 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
 
     try {
       if (isEditing) {
-        final existing = ref.read(teamByIdProvider(widget.teamId!)).value;
-        if (existing == null) throw Exception('Team not found');
+        // Use repository directly to avoid provider issues
+        final repo = ref.read(teamRepositoryProvider);
+        
+        // Get the existing team with timeout
+        final existing = await repo.getTeamById(widget.teamId!)
+            .timeout(const Duration(seconds: 10));
+        
+        if (existing == null) {
+          throw Exception('Team not found');
+        }
 
         final updated = existing.copyWith(
           name: _nameController.text.trim(),
           shortName: _shortNameController.text.trim().isEmpty ? null : _shortNameController.text.trim(),
-          logoUrl: _logoUrlController.text.trim().isEmpty ? null : _logoUrlController.text.trim(),
-          primaryColor: _primaryColorController.text.trim().isEmpty ? null : _primaryColorController.text.trim(),
-          secondaryColor: _secondaryColorController.text.trim().isEmpty ? null : _secondaryColorController.text.trim(),
+          updatedAt: DateTime.now(),
         );
-        await ref.read(updateTeamProvider(UpdateTeamRequest(updated)).future);
+        
+        // Update the team directly with timeout
+        final result = await repo.updateTeam(updated)
+            .timeout(const Duration(seconds: 10));
+        
+        // Verify the update succeeded
+        if (result.id != existing.id) {
+          throw Exception('Update failed: Team ID mismatch');
+        }
+        
+        // Invalidate providers after successful update
+        ref.invalidate(teamsByTournamentProvider(widget.tournamentId));
+        ref.invalidate(teamByIdProvider(widget.teamId!));
       } else {
         final newTeam = Team(
           id: '',
           tournamentId: widget.tournamentId,
           name: _nameController.text.trim(),
           shortName: _shortNameController.text.trim().isEmpty ? null : _shortNameController.text.trim(),
-          logoUrl: _logoUrlController.text.trim().isEmpty ? null : _logoUrlController.text.trim(),
-          primaryColor: _primaryColorController.text.trim().isEmpty ? null : _primaryColorController.text.trim(),
-          secondaryColor: _secondaryColorController.text.trim().isEmpty ? null : _secondaryColorController.text.trim(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        await ref.read(createTeamProvider(CreateTeamRequest(newTeam)).future);
+        
+        final repo = ref.read(teamRepositoryProvider);
+        await repo.createTeam(newTeam)
+            .timeout(const Duration(seconds: 10));
+        
+        // Invalidate providers after successful create
+        ref.invalidate(teamsByTournamentProvider(widget.tournamentId));
+      }
+
+      // Clear loading state BEFORE navigation to prevent infinite loader
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing ? 'Team updated' : 'Team created'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
-        context.go('/admin/tournaments/${widget.tournamentId}');
+        // Small delay before navigation to ensure UI updates
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        if (mounted) {
+          // Navigate after clearing loading state
+          context.go('/admin/tournaments/${widget.tournamentId}');
+        }
       }
-    } catch (e) {
+    } on TimeoutException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        setState(() => _isLoading = false);
       }
-    } finally {
+    } catch (e, stackTrace) {
+      // Log the error for debugging
+      debugPrint('Error updating team: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -142,22 +160,17 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
 
     try {
       await ref.read(deleteTeamProvider(DeleteTeamRequest(widget.teamId!, widget.tournamentId)).future);
+      
+      // Clear loading state BEFORE navigation to prevent infinite loader
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Team deleted')),
-        );
+        setState(() => _isLoading = false);
+      }
+
+      if (mounted) {
+        // Navigate after clearing loading state
         context.go('/admin/tournaments/${widget.tournamentId}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -257,61 +270,11 @@ class _TeamFormScreenState extends ConsumerState<TeamFormScreen> {
             TextFormField(
               controller: _shortNameController,
               enabled: !_isLoading,
-              textInputAction: TextInputAction.next,
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: 'Short Name',
                 hintText: 'e.g., BLW',
                 prefixIcon: Icon(Icons.short_text),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Logo URL Field
-            TextFormField(
-              controller: _logoUrlController,
-              enabled: !_isLoading,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Logo URL',
-                hintText: 'https://example.com/logo.png',
-                prefixIcon: Icon(Icons.image),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Colors Section
-            Text(
-              'Team Colors',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(),
-            const SizedBox(height: 16),
-
-            // Primary Color Field
-            TextFormField(
-              controller: _primaryColorController,
-              enabled: !_isLoading,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Primary Color',
-                hintText: 'e.g., #0000FF or Blue',
-                prefixIcon: Icon(Icons.palette),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Secondary Color Field
-            TextFormField(
-              controller: _secondaryColorController,
-              enabled: !_isLoading,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Secondary Color',
-                hintText: 'e.g., #FFFFFF or White',
-                prefixIcon: Icon(Icons.palette_outlined),
               ),
             ),
             const SizedBox(height: 32),

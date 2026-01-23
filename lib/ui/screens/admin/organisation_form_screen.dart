@@ -84,23 +84,10 @@ class _OrganisationFormScreenState extends ConsumerState<OrganisationFormScreen>
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing ? 'Organisation updated' : 'Organisation created'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
         context.go('/admin');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      // Error handled silently
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -140,20 +127,10 @@ class _OrganisationFormScreenState extends ConsumerState<OrganisationFormScreen>
     try {
       await ref.read(deleteOrganisationProvider(widget.organisationId!).future);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Organisation deleted')),
-        );
         context.go('/admin');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      // Error handled silently
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

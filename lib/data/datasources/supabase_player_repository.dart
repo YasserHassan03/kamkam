@@ -15,7 +15,6 @@ class SupabasePlayerRepository implements PlayerRepository {
         .from(DbTables.players)
         .select()
         .eq('team_id', teamId)
-        .order('jersey_number')
         .order('name');
 
     return (response as List).map((json) => Player.fromJson(json)).toList();
@@ -46,13 +45,13 @@ class SupabasePlayerRepository implements PlayerRepository {
 
   @override
   Future<Player> updatePlayer(Player player) async {
+    // Only update columns that exist in the database schema
+    // The players table only has: id, team_id, name, contact_info, created_at, updated_at
     final response = await _client
         .from(DbTables.players)
         .update({
           'name': player.name,
-          'jersey_number': player.jerseyNumber,
-          'position': player.position?.name,
-          'is_captain': player.isCaptain,
+          'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', player.id)
         .select()

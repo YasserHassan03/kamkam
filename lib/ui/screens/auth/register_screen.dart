@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../providers/user_profile_providers.dart';
+import '../../../data/models/user_profile.dart';
 import '../../../core/constants/app_constants.dart';
 
 /// Registration screen for new admin accounts
@@ -44,52 +46,83 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       result.fold(
         (error) {
           setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $error'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        },
-        (user) {
-          setState(() => _isSubmitting = false);
           
-          // Show success dialog - user is already signed out by repository
+          // Show detailed error dialog for sign-up failures
           showDialog(
             context: context,
-            barrierDismissible: false,
             builder: (ctx) => AlertDialog(
-              icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-              title: const Text('Account Created!'),
-              content: const Text(
-                'Your account has been created successfully.\n\n'
-                'Please wait for an administrator to approve your account '
-                'before you can sign in.',
-              ),
+              icon: const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              title: const Text('Sign Up Failed'),
+              content: Text(error),
               actions: [
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    context.go('/');
-                  },
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
                   child: const Text('OK'),
                 ),
+                if (error.contains('profile setup failed') || error.contains('database'))
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      // Show instructions
+                      showDialog(
+                        context: context,
+                        builder: (ctx2) => AlertDialog(
+                          title: const Text('Troubleshooting'),
+                          content: const Text(
+                            'If sign-up keeps failing:\n\n'
+                            '1. Check your internet connection\n'
+                            '2. Verify the database trigger is working\n'
+                            '3. Contact an administrator\n\n'
+                            'Your account may have been created in Supabase Auth even if the profile failed.'
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx2).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: const Text('Get Help'),
+                  ),
               ],
             ),
           );
+        },
+        (user) async {
+          setState(() => _isSubmitting = false);
+          
+          // Wait for profile to be created by database trigger
+          // Poll for profile up to 10 times (5 seconds total)
+          UserProfile? profile;
+          for (int i = 0; i < 10; i++) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            if (!mounted) return;
+            
+            // Invalidate and try to get profile
+            ref.invalidate(currentUserProfileProvider);
+            try {
+              profile = await ref.read(currentUserProfileProvider.future);
+              if (profile != null) {
+                break; // Profile found, exit loop
+              }
+            } catch (e) {
+              // Continue polling
+            }
+          }
+          
+          if (!mounted) return;
+          
+          // Redirect to pending approval screen
+          // The router will handle showing the pending screen based on profile status
+          context.go('/pending-approval');
         },
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unexpected error: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 5),
-        ),
-      );
     }
   }
 

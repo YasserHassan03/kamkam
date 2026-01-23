@@ -45,15 +45,17 @@ class SupabaseTeamRepository implements TeamRepository {
 
   @override
   Future<Team> updateTeam(Team team) async {
+    // Only update columns that exist in the database schema
+    // The teams table only has: id, tournament_id, group_id, name, short_name, created_at, updated_at
+    final updateData = <String, dynamic>{
+      'name': team.name,
+      'short_name': team.shortName,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    
     final response = await _client
         .from(DbTables.teams)
-        .update({
-          'name': team.name,
-          'short_name': team.shortName,
-          'logo_url': team.logoUrl,
-          'primary_color': team.primaryColor,
-          'secondary_color': team.secondaryColor,
-        })
+        .update(updateData)
         .eq('id', team.id)
         .select()
         .single();

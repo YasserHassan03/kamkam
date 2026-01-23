@@ -47,9 +47,11 @@ Map<String, dynamic> _$TournamentRulesToJson(TournamentRules instance) =>
 
 Tournament _$TournamentFromJson(Map<String, dynamic> json) => Tournament(
   id: json['id'] as String,
+  orgId: json['org_id'] as String,
+  ownerId: json['owner_id'] as String,
+  ownerEmail: json['owner_email'] as String?,
   name: json['name'] as String,
   seasonYear: (json['season_year'] as num).toInt(),
-  ownerId: json['owner_id'] as String?,
   startDate: json['start_date'] == null
       ? null
       : DateTime.parse(json['start_date'] as String),
@@ -59,6 +61,9 @@ Tournament _$TournamentFromJson(Map<String, dynamic> json) => Tournament(
   status: json['status'] == null
       ? TournamentStatus.draft
       : _statusFromJson(json['status'] as String),
+  visibility: json['visibility'] == null
+      ? Visibility.public
+      : _visibilityFromJson(json['visibility'] as String?),
   format: json['format'] as String? ?? 'league',
   groupCount: (json['group_count'] as num?)?.toInt(),
   qualifiersPerGroup: (json['qualifiers_per_group'] as num?)?.toInt(),
@@ -71,21 +76,26 @@ Tournament _$TournamentFromJson(Map<String, dynamic> json) => Tournament(
   updatedAt: json['updated_at'] == null
       ? null
       : DateTime.parse(json['updated_at'] as String),
+  hiddenByAdmin: json['hidden_by_admin'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$TournamentToJson(Tournament instance) =>
     <String, dynamic>{
       'id': instance.id,
+      'org_id': instance.orgId,
       'owner_id': instance.ownerId,
+      'owner_email': instance.ownerEmail,
       'name': instance.name,
       'season_year': instance.seasonYear,
       'start_date': instance.startDate?.toIso8601String(),
       'end_date': instance.endDate?.toIso8601String(),
       'status': _statusToJson(instance.status),
+      'visibility': _visibilityToJson(instance.visibility),
       'format': instance.format,
       'group_count': instance.groupCount,
       'qualifiers_per_group': instance.qualifiersPerGroup,
       'rules_json': _rulesToJson(instance.rules),
       'created_at': instance.createdAt?.toIso8601String(),
       'updated_at': instance.updatedAt?.toIso8601String(),
+      'hidden_by_admin': instance.hiddenByAdmin,
     };

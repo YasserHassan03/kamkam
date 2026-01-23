@@ -148,7 +148,7 @@ final generateFixturesProvider =
       tournamentId: request.tournamentId,
       startDate: request.startDate,
       daysBetweenMatchdays: request.daysBetweenMatchdays,
-    ).timeout(const Duration(seconds: 30));
+    ).timeout(const Duration(seconds: 120)); // Increased to 2 minutes for large tournaments
 
     final result = FixtureGenerationResult.fromJson(response);
 

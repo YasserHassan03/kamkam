@@ -104,6 +104,12 @@ class Tournament extends Equatable {
   @JsonKey(name: 'org_id')
   final String orgId;
 
+  @JsonKey(name: 'owner_id')
+  final String ownerId;
+
+  @JsonKey(name: 'owner_email')
+  final String? ownerEmail;
+
   final String name;
 
   @JsonKey(name: 'season_year')
@@ -117,6 +123,9 @@ class Tournament extends Equatable {
 
   @JsonKey(fromJson: _statusFromJson, toJson: _statusToJson)
   final TournamentStatus status;
+
+  @JsonKey(name: 'visibility', fromJson: _visibilityFromJson, toJson: _visibilityToJson)
+  final Visibility visibility;
 
   @JsonKey(name: 'format')
   final String format;
@@ -136,20 +145,27 @@ class Tournament extends Equatable {
   @JsonKey(name: 'updated_at')
   final DateTime? updatedAt;
 
+  @JsonKey(name: 'hidden_by_admin', defaultValue: false)
+  final bool hiddenByAdmin;
+
   const Tournament({
     required this.id,
     required this.orgId,
+    required this.ownerId,
+    this.ownerEmail,
     required this.name,
     required this.seasonYear,
     this.startDate,
     this.endDate,
     this.status = TournamentStatus.draft,
+    this.visibility = Visibility.public,
     this.format = 'league',
     this.groupCount,
     this.qualifiersPerGroup,
     this.rules = const TournamentRules(),
     this.createdAt,
     this.updatedAt,
+    this.hiddenByAdmin = false,
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) =>
@@ -159,11 +175,14 @@ class Tournament extends Equatable {
 
   Map<String, dynamic> toInsertJson() => {
     'org_id': orgId,
+    'owner_id': ownerId,
+    'owner_email': ownerEmail,
     'name': name,
     'season_year': seasonYear,
     'start_date': startDate?.toIso8601String().split('T').first,
     'end_date': endDate?.toIso8601String().split('T').first,
     'status': status.name,
+    'visibility': visibility.name,
     'format': format,
     'group_count': groupCount,
     'qualifiers_per_group': qualifiersPerGroup,
@@ -173,45 +192,57 @@ class Tournament extends Equatable {
   Tournament copyWith({
     String? id,
     String? orgId,
+    String? ownerId,
+    String? ownerEmail,
     String? name,
     int? seasonYear,
     DateTime? startDate,
     DateTime? endDate,
     TournamentStatus? status,
+    Visibility? visibility,
     String? format,
     int? groupCount,
     int? qualifiersPerGroup,
     TournamentRules? rules,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? hiddenByAdmin,
   }) {
     return Tournament(
       id: id ?? this.id,
       orgId: orgId ?? this.orgId,
+      ownerId: ownerId ?? this.ownerId,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
       name: name ?? this.name,
       seasonYear: seasonYear ?? this.seasonYear,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       status: status ?? this.status,
+      visibility: visibility ?? this.visibility,
       format: format ?? this.format,
       groupCount: groupCount ?? this.groupCount,
       qualifiersPerGroup: qualifiersPerGroup ?? this.qualifiersPerGroup,
       rules: rules ?? this.rules,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      hiddenByAdmin: hiddenByAdmin ?? this.hiddenByAdmin,
     );
   }
 
   @override
   List<Object?> get props => [
-    id, orgId, name, seasonYear, startDate, endDate,
-    status, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt
+    id, orgId, ownerId, ownerEmail, name, seasonYear, startDate, endDate,
+    status, visibility, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt, hiddenByAdmin
   ];
 }
 
-TournamentStatus _statusFromJson(String value) => 
+TournamentStatus _statusFromJson(String value) =>
     TournamentStatus.fromString(value);
 String _statusToJson(TournamentStatus status) => status.name;
+
+Visibility _visibilityFromJson(String? value) =>
+    Visibility.fromString(value ?? 'public');
+String _visibilityToJson(Visibility visibility) => visibility.name;
 
 TournamentRules _rulesFromJson(dynamic json) {
   if (json == null) return const TournamentRules();

@@ -37,6 +37,11 @@ class DashboardScreen extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Admin Dashboard'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back to Tournament Views',
+              onPressed: () => context.go('/'),
+            ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -117,13 +122,19 @@ class DashboardScreen extends ConsumerWidget {
                       label: 'New Tournament',
                       onTap: () => context.go('/admin/tournaments/new'),
                     ),
-                    if (isAdmin)
+                    if (isAdmin) ...[
                       _QuickActionCard(
                         icon: Icons.admin_panel_settings,
                         label: 'User Management',
                         badge: pendingUsersAsync.value?.length ?? 0,
                         onTap: () => context.go('/admin/users'),
                       ),
+                      _QuickActionCard(
+                        icon: Icons.visibility,
+                        label: 'Tournament Management',
+                        onTap: () => context.go('/admin/tournaments/manage'),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 24),

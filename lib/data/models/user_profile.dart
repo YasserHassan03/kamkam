@@ -143,18 +143,59 @@ class UserProfileRepository {
 
   /// Get all pending users (admin only)
   Future<List<UserProfile>> getPendingUsers() async {
-    final response = await _client.rpc('get_pending_users');
-    return (response as List)
-        .map((json) => UserProfile.fromJson(json))
-        .toList();
+    try {
+      final response = await _client.rpc('get_pending_users');
+      final users = (response as List)
+          .map((json) {
+            try {
+              return UserProfile.fromJson(json as Map<String, dynamic>);
+            } catch (e) {
+              AppLogger.error('Error parsing user profile', e);
+              AppLogger.debug('Failed JSON: $json');
+              return null;
+            }
+          })
+          .whereType<UserProfile>()
+          .toList();
+      
+      AppLogger.debug('Found ${users.length} pending users');
+      return users;
+    } catch (e) {
+      AppLogger.error('Error getting pending users', e);
+      rethrow;
+    }
   }
 
   /// Get all users (admin only) - uses RPC to bypass RLS
   Future<List<UserProfile>> getAllUsers() async {
-    final response = await _client.rpc('get_all_users');
-    return (response as List)
-        .map((json) => UserProfile.fromJson(json))
-        .toList();
+    try {
+      final response = await _client.rpc('get_all_users');
+      final users = (response as List)
+          .map((json) {
+            try {
+              return UserProfile.fromJson(json as Map<String, dynamic>);
+            } catch (e) {
+              AppLogger.error('Error parsing user profile', e);
+              AppLogger.debug('Failed JSON: $json');
+              return null;
+            }
+          })
+          .whereType<UserProfile>()
+          .toList();
+      
+      AppLogger.debug('Found ${users.length} total users (${users.where((u) => u.isPending).length} pending)');
+      return users;
+    } catch (e) {
+      AppLogger.error('Error getting all users', e);
+      rethrow;
+    }
+  }
+
+  /// Delete a user (admin only) - calls RPC function
+  Future<void> deleteUser(String userId) async {
+    await _client.rpc('delete_user', params: {
+      'user_id_to_delete': userId,
+    });
   }
 
   /// Approve a user (admin only)

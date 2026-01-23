@@ -47,9 +47,8 @@ class Player extends Equatable {
   Map<String, dynamic> toInsertJson() => {
     'team_id': teamId,
     'name': name,
-    'jersey_number': jerseyNumber,
-    'position': position?.name,
-    'is_captain': isCaptain,
+    // Note: jersey_number, position, and is_captain are not in the database schema
+    // The players table only has: id, team_id, name, contact_info, created_at, updated_at
   };
 
   Player copyWith({

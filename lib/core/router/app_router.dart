@@ -17,11 +17,15 @@ import '../../ui/screens/admin/dashboard_screen.dart';
 import '../../ui/screens/admin/organisation_form_screen.dart';
 import '../../ui/screens/admin/tournament_form_screen.dart';
 import '../../ui/screens/admin/tournament_admin_screen.dart';
+import '../../ui/screens/admin/tournament_management_screen.dart';
 import '../../ui/screens/admin/team_form_screen.dart';
 import '../../ui/screens/admin/player_list_screen.dart';
 import '../../ui/screens/admin/fixture_form_screen.dart';
 import '../../ui/screens/admin/enter_result_screen.dart';
 import '../../ui/screens/admin/user_management_screen.dart';
+
+/// Global navigator key for showing dialogs that persist across route changes
+final globalNavigatorKey = GlobalKey<NavigatorState>();
 
 /// App router configuration using GoRouter
 /// 
@@ -34,6 +38,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final userProfileAsync = ref.watch(currentUserProfileProvider);
 
   return GoRouter(
+    navigatorKey: globalNavigatorKey,
     initialLocation: '/',
     debugLogDiagnostics: false, // Set to true for debugging
     redirect: (context, state) {
@@ -60,7 +65,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isApproved = userProfile?.isApproved ?? false;
 
       // Don't redirect while auth or profile is loading
+      // This prevents redirects during login attempts (including failed logins)
       if (authLoading) {
+        return null;
+      }
+      
+      // If we're on login/register and not authenticated, ALWAYS stay there
+      // This prevents redirects when login fails
+      if (isAuthRoute && !isAuthenticated) {
         return null;
       }
 
@@ -68,6 +80,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isAuthenticated) {
         if (isAdminRoute || isPendingRoute) {
           return '/login?redirect=$currentPath';
+        }
+        // CRITICAL: If already on login/register, ALWAYS stay there (don't redirect away)
+        // This prevents redirects when login fails
+        if (isAuthRoute) {
+          return null; // Stay on login/register page
         }
         return null; // Allow public and auth routes
       }
@@ -79,35 +96,59 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // 3. Authenticated with pending/rejected profile -> pending screen
-      if (hasProfile && (isPending || isRejected)) {
-        if (isPendingRoute || isPublicRoute) {
-          return null; // Already on pending or public page
+      // 3. NO PROFILE EXISTS - wait a bit for profile to load, or show pending screen
+      if (!hasProfile) {
+        // Profile might still be loading - wait a bit more
+        if (profileLoading) {
+          return null; // Wait for profile to load
         }
+        // Profile doesn't exist - redirect to pending approval screen
+        // This handles cases where profile creation is delayed
+        // The pending screen will show an appropriate message
+        if (!isPendingRoute) {
+          return '/pending-approval';
+        }
+        return null; // Already on pending route
+      }
+
+      // 4. Authenticated with pending/rejected profile -> pending screen
+      if (isPending || isRejected) {
+        if (isPendingRoute) {
+          return null; // Already on pending page
+        }
+        if (isPublicRoute) {
+          // Allow viewing public pages but show a banner or redirect after
+          return null;
+        }
+        // Redirect to pending approval screen
         return '/pending-approval';
       }
 
-      // 4. Authenticated and approved (or no profile yet) on auth route -> admin
+      // 5. Authenticated on auth route -> redirect based on approval status
       if (isAuthRoute) {
-        if (hasProfile && isApproved) {
-          return '/admin';
-        }
-        if (hasProfile && (isPending || isRejected)) {
+        if (isPending || isRejected) {
           return '/pending-approval';
         }
-        // No profile yet but authenticated - wait for profile to load
-        // or go to admin (profile will be created)
-        return '/admin';
+        if (isApproved) {
+          return '/admin';
+        }
+        // Fallback
+        return '/pending-approval';
       }
 
-      // 5. On pending route but approved -> admin
+      // 6. On pending route but approved -> admin
       if (isPendingRoute && isApproved) {
         return '/admin';
       }
 
-      // 6. Only admins can access user management
+      // 7. Only admins can access user management
       if (isUserManagementRoute && !isAdmin) {
         return '/admin';
+      }
+
+      // 8. If authenticated and approved, allow access to admin routes
+      if (isAdminRoute && !isApproved) {
+        return '/pending-approval';
       }
 
       return null;
@@ -213,6 +254,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/tournaments',
         name: 'tournaments',
         redirect: (context, state) => '/admin',
+      ),
+      GoRoute(
+        path: '/admin/tournaments/manage',
+        name: 'tournamentManagement',
+        builder: (context, state) => const TournamentManagementScreen(),
       ),
       GoRoute(
         path: '/admin/tournaments/new',

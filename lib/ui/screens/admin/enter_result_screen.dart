@@ -41,30 +41,10 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
       if (!mounted) return;
 
       if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Result saved and standings updated!'),
-            backgroundColor: Colors.green,
-          ),
-        );
         context.go('/admin/tournaments/${widget.tournamentId}');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? 'Failed to save result'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      // Error handled silently
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

@@ -59,10 +59,8 @@ class Team extends Equatable {
     'tournament_id': tournamentId,
     'name': name,
     'short_name': shortName,
-    'logo_url': logoUrl,
-    'primary_color': primaryColor,
-    'secondary_color': secondaryColor,
-    'group_number': groupNumber,
+    // Note: logo_url, primary_color, secondary_color, and group_number
+    // are not in the database schema, so they're excluded here
   };
 
   Team copyWith({

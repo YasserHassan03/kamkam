@@ -38,7 +38,42 @@ class PendingApprovalScreen extends ConsumerWidget {
       body: profileAsync.when(
         data: (profile) {
           if (profile == null) {
-            return const Center(child: Text('Profile not found'));
+            // Profile doesn't exist - show pending approval message
+            // This handles cases where profile creation is delayed or failed
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.hourglass_empty,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Awaiting Approval',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your account is being set up. Please wait for an administrator to approve your account.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: () => ref.invalidate(currentUserProfileProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Check Status'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           if (profile.isRejected) {

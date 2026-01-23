@@ -11,22 +11,17 @@ class SupabaseTournamentRepository implements TournamentRepository {
 
   @override
   Future<List<Tournament>> getPublicTournaments() async {
-    // Join with organisations to filter by visibility and exclude drafts
+    // Filter by visibility, exclude drafts, and exclude admin-hidden tournaments
     final response = await _client
         .from(DbTables.tournaments)
-        .select('''
-          *,
-          organisations!inner(visibility)
-        ''')
-        .eq('organisations.visibility', 'public')
+        .select()
+        .eq('visibility', 'public')
         .neq('status', 'draft') // Exclude draft tournaments
+        .eq('hidden_by_admin', false) // Exclude admin-hidden tournaments
         .order('created_at', ascending: false);
 
     return (response as List).map((json) {
-      // Remove the joined organisation data before parsing
-      final tournamentJson = Map<String, dynamic>.from(json);
-      tournamentJson.remove('organisations');
-      return Tournament.fromJson(tournamentJson);
+      return Tournament.fromJson(json);
     }).toList();
   }
 
@@ -77,9 +72,29 @@ class SupabaseTournamentRepository implements TournamentRepository {
           'start_date': tournament.startDate?.toIso8601String().split('T').first,
           'end_date': tournament.endDate?.toIso8601String().split('T').first,
           'status': tournament.status.name,
+          'visibility': tournament.visibility.name,
+          'format': tournament.format,
+          'group_count': tournament.groupCount,
+          'qualifiers_per_group': tournament.qualifiersPerGroup,
           'rules_json': tournament.rules.toJson(),
+          'hidden_by_admin': tournament.hiddenByAdmin,
         })
         .eq('id', tournament.id)
+        .select()
+        .single();
+
+    return Tournament.fromJson(response);
+  }
+
+  /// Toggle hide/show tournament for admin (overrides organiser visibility)
+  Future<Tournament> toggleTournamentVisibility(String tournamentId, bool hidden) async {
+    final response = await _client
+        .from(DbTables.tournaments)
+        .update({
+          'hidden_by_admin': hidden,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', tournamentId)
         .select()
         .single();
 
@@ -92,21 +107,30 @@ class SupabaseTournamentRepository implements TournamentRepository {
   }
 
   @override
+  Future<List<Tournament>> getAllTournaments() async {
+    // Admin can see all tournaments regardless of visibility or status
+    final response = await _client
+        .from(DbTables.tournaments)
+        .select()
+        .order('created_at', ascending: false);
+
+    return (response as List).map((json) {
+      return Tournament.fromJson(json);
+    }).toList();
+  }
+
+  @override
   Future<List<Tournament>> getActiveTournaments() async {
     final response = await _client
         .from(DbTables.tournaments)
-        .select('''
-          *,
-          organisations!inner(visibility)
-        ''')
+        .select()
         .eq('status', 'active')
-        .eq('organisations.visibility', 'public')
+        .eq('visibility', 'public')
+        .eq('hidden_by_admin', false) // Exclude admin-hidden tournaments
         .order('start_date', ascending: true);
 
     return (response as List).map((json) {
-      final tournamentJson = Map<String, dynamic>.from(json);
-      tournamentJson.remove('organisations');
-      return Tournament.fromJson(tournamentJson);
+      return Tournament.fromJson(json);
     }).toList();
   }
 
@@ -114,28 +138,23 @@ class SupabaseTournamentRepository implements TournamentRepository {
   Future<List<Tournament>> searchTournaments(String query) async {
     final response = await _client
         .from(DbTables.tournaments)
-        .select('''
-          *,
-          organisations!inner(visibility)
-        ''')
-        .eq('organisations.visibility', 'public')
+        .select()
+        .eq('visibility', 'public')
         .ilike('name', '%$query%')
         .order('name')
         .limit(20);
 
     return (response as List).map((json) {
-      final tournamentJson = Map<String, dynamic>.from(json);
-      tournamentJson.remove('organisations');
-      return Tournament.fromJson(tournamentJson);
+      return Tournament.fromJson(json);
     }).toList();
   }
 
   @override
-  Future<List<Tournament>> getUserTournaments(String orgId) async {
+  Future<List<Tournament>> getUserTournaments(String ownerId) async {
     final response = await _client
         .from(DbTables.tournaments)
         .select()
-        .eq('org_id', orgId) // Filter by org ID
+        .eq('owner_id', ownerId) // Filter by owner ID
         .order('created_at', ascending: false);
 
     return (response as List).map((json) => Tournament.fromJson(json)).toList();

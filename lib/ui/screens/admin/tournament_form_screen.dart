@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../data/models/tournament.dart';
+import '../../../providers/auth_providers.dart';
 import '../../../providers/organisation_providers.dart';
 import '../../../providers/tournament_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
@@ -25,7 +28,6 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
   final _nameController = TextEditingController();
   final _seasonYearController = TextEditingController(text: DateTime.now().year.toString());
   final _roundsController = TextEditingController(text: '1');
-  final _matchDurationController = TextEditingController(text: '14');
   final _winPointsController = TextEditingController(text: '3');
   final _drawPointsController = TextEditingController(text: '1');
   final _lossPointsController = TextEditingController(text: '0');
@@ -52,7 +54,6 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
     _nameController.dispose();
     _seasonYearController.dispose();
     _roundsController.dispose();
-    _matchDurationController.dispose();
     _winPointsController.dispose();
     _drawPointsController.dispose();
     _lossPointsController.dispose();
@@ -66,13 +67,12 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
     if (_isInitialized) return;
     _nameController.text = tournament.name;
     _seasonYearController.text = tournament.seasonYear.toString();
-    _selectedOrgId = tournament.orgId;
+    _selectedOrgId = tournament.ownerId;
     _selectedType = tournament.rules.type;
     _selectedStatus = tournament.status;
     _startDate = tournament.startDate;
     _endDate = tournament.endDate;
     _roundsController.text = tournament.rules.rounds.toString();
-    _matchDurationController.text = (tournament.rules.matchDurationMinutes ?? 14).toString();
     _winPointsController.text = tournament.rules.pointsForWin.toString();
     _drawPointsController.text = tournament.rules.pointsForDraw.toString();
     _lossPointsController.text = tournament.rules.pointsForLoss.toString();
@@ -108,10 +108,56 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedOrgId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an organisation')),
-      );
       return;
+    }
+
+    // Check for duplicate tournament name in the same organisation
+    final tournamentName = _nameController.text.trim();
+    if (tournamentName.isNotEmpty && _selectedOrgId != null) {
+      try {
+        final existingTournaments = await ref.read(tournamentsByOrgProvider(_selectedOrgId!).future);
+        final duplicateExists = existingTournaments.any(
+          (t) => t.name.toLowerCase().trim() == tournamentName.toLowerCase().trim() 
+              && (!isEditing || t.id != widget.tournamentId),
+        );
+        
+        if (duplicateExists) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Duplicate Tournament Name',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                'A tournament named "$tournamentName" already exists in this organisation. Please choose a different name.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        // If check fails, continue anyway - database constraint will catch it
+        debugPrint('Error checking for duplicate tournament name: $e');
+      }
     }
 
     setState(() => _isLoading = true);
@@ -120,7 +166,6 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
       final rules = TournamentRules(
         type: _selectedType,
         rounds: int.tryParse(_roundsController.text) ?? 1,
-        matchDurationMinutes: int.tryParse(_matchDurationController.text),
         pointsForWin: int.parse(_winPointsController.text),
         pointsForDraw: int.parse(_drawPointsController.text),
         pointsForLoss: int.parse(_lossPointsController.text),
@@ -151,9 +196,12 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
         );
         await ref.read(updateTournamentProvider(updated).future);
       } else {
+        final currentUser = ref.read(authNotifierProvider).value;
         final newTournament = Tournament(
           id: '',
           orgId: _selectedOrgId!,
+          ownerId: currentUser!.id,
+          ownerEmail: currentUser.email,
           name: _nameController.text.trim(),
           seasonYear: int.parse(_seasonYearController.text),
           status: _selectedStatus,
@@ -168,35 +216,84 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
         );
         final created = await ref.read(createTournamentProvider(newTournament).future);
         
-        // Generate teams and fixtures for new tournament
+        // Clear loading state IMMEDIATELY after tournament creation
+        // Don't wait for teams/fixtures generation
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+
+        // Navigate immediately - don't wait for teams/fixtures
+        if (mounted) {
+          context.go('/admin');
+        }
+
+        // Generate teams and fixtures in the background (non-blocking)
+        // User can also do this manually from the tournament admin screen
         final teamCount = int.tryParse(_teamCountController.text) ?? 8;
-        await ref.read(generateTeamsAndFixturesProvider((
+        // Fire and forget - don't await
+        ref.read(generateTeamsAndFixturesProvider((
           tournamentId: created.id,
           teamCount: teamCount,
-        )).future);
+        )).future).catchError((e) {
+          // Silently handle errors - user can generate manually if needed
+          debugPrint('Background team/fixture generation failed: $e');
+        });
+        
+        // Return early since we've already navigated
+        return;
+      }
+
+      // For editing, clear loading and navigate
+      // Clear loading state BEFORE navigation to prevent infinite loader
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing ? 'Tournament updated' : 'Tournament created'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
+        // Navigate after clearing loading state
         context.go('/admin');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
+        
+        // Check if error is due to duplicate name
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('unique') || 
+            errorMsg.contains('duplicate') || 
+            errorMsg.contains('idx_tournaments_org_name_unique')) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Duplicate Tournament Name',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'A tournament with this name already exists in this organisation. '
+                'Please choose a different name.'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
       }
     }
   }
@@ -215,9 +312,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
         },
         loading: () {},
         error: (e, _) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error loading tournament: $e')),
-          );
+          // Error handled silently
         },
       );
     }
@@ -321,6 +416,12 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
                   return 'Please enter a tournament name';
                 }
                 return null;
+              },
+              onChanged: (value) {
+                // Trigger validation when name changes
+                if (_formKey.currentState != null) {
+                  _formKey.currentState!.validate();
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -502,39 +603,21 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
             ],
 
             // Match Settings
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _roundsController,
-                    enabled: !_isLoading,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Rounds',
-                      prefixIcon: Icon(Icons.repeat),
-                    ),
-                    validator: (value) {
-                      final num = int.tryParse(value ?? '');
-                      if (num == null || num < 1) {
-                        return 'Min 1';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _matchDurationController,
-                    enabled: !_isLoading,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Match (min)',
-                      prefixIcon: Icon(Icons.timer),
-                    ),
-                  ),
-                ),
-              ],
+            TextFormField(
+              controller: _roundsController,
+              enabled: !_isLoading,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Rounds',
+                prefixIcon: Icon(Icons.repeat),
+              ),
+              validator: (value) {
+                final num = int.tryParse(value ?? '');
+                if (num == null || num < 1) {
+                  return 'Min 1';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 

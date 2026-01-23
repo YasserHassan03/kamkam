@@ -94,15 +94,7 @@ class _BracketMatchTile extends ConsumerWidget {
                 awayGoals: away,
               )).future);
 
-              if (result.success) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Result saved')));
-                }
-              } else {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${result.error}')));
-                }
-              }
+              // Result saved or error handled silently
             },
             child: const Text('Save'),
           ),

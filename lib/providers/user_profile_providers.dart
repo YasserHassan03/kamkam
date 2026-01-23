@@ -47,14 +47,30 @@ final isUserAdminProvider = Provider<bool>((ref) {
   );
 });
 
-/// Pending users provider (admin only)
-final pendingUsersProvider = FutureProvider<List<UserProfile>>((ref) async {
+/// Pending users provider (admin only) - auto-refreshes every 5 seconds
+final pendingUsersProvider = StreamProvider<List<UserProfile>>((ref) async* {
   final repo = ref.watch(userProfileRepositoryProvider);
+  
+  // Initial load
   try {
-    return await repo.getPendingUsers();
+    final users = await repo.getPendingUsers();
+    AppLogger.debug('PendingUsersProvider: Found ${users.length} pending users');
+    yield users;
   } catch (e) {
     AppLogger.error('Error loading pending users', e);
-    return [];
+    rethrow;
+  }
+  
+  // Poll every 5 seconds for new pending users
+  await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    try {
+      final users = await repo.getPendingUsers();
+      AppLogger.debug('PendingUsersProvider: Polling - Found ${users.length} pending users');
+      yield users;
+    } catch (e) {
+      AppLogger.error('Error polling pending users', e);
+      // Continue polling even on error
+    }
   }
 });
 
@@ -86,4 +102,13 @@ final rejectUserProvider = FutureProvider.family<Map<String, dynamic>, ({String 
   ref.invalidate(pendingUsersProvider);
   ref.invalidate(allUsersProvider);
   return result;
+});
+
+/// Delete user provider (admin only)
+final deleteUserProvider = FutureProvider.family<void, String>((ref, userId) async {
+  final repo = ref.watch(userProfileRepositoryProvider);
+  await repo.deleteUser(userId);
+  // Invalidate user lists after deletion
+  ref.invalidate(pendingUsersProvider);
+  ref.invalidate(allUsersProvider);
 });

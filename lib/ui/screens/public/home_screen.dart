@@ -152,6 +152,7 @@ class _TournamentList extends StatelessWidget {
     // Group non-favorite tournaments by organisation
     final Map<String, List<Tournament>> grouped = {};
     for (final tournament in otherTournaments) {
+      // Use org_id to group tournaments, not owner_id
       grouped.putIfAbsent(tournament.orgId, () => []).add(tournament);
     }
 
@@ -200,11 +201,12 @@ class _TournamentList extends StatelessWidget {
               ),
             ),
             ...favoriteTournaments.map((tournament) {
+              // Use org_id to find the organisation, not owner_id
               final org = organisations.firstWhere(
                 (o) => o.id == tournament.orgId,
                 orElse: () => Organisation(
                   id: '',
-                  name: 'Unknown',
+                  name: 'Unknown Organisation',
                   ownerId: '',
                   ownerEmail: '',
                   visibility: app_enums.Visibility.public,

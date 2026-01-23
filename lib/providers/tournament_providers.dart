@@ -72,7 +72,7 @@ final deleteTournamentProvider =
   ref.invalidate(activeTournamentsProvider);
   if (tournament != null) {
     ref.invalidate(tournamentsByOrgProvider(tournament.orgId));
-    // ref.invalidate(userTournamentsProvider(tournament.createdBy)); // No createdBy field
+    ref.invalidate(userTournamentsProvider(tournament.ownerId));
   }
   ref.invalidate(tournamentByIdProvider(id));
 });
@@ -82,6 +82,47 @@ final userTournamentsProvider =
     FutureProvider.family<List<Tournament>, String>((ref, userId) async {
   final repo = ref.watch(tournamentRepositoryProvider);
   return await repo.getUserTournaments(userId);
+});
+
+/// All tournaments provider (admin only) - auto-refreshes every 5 seconds
+final allTournamentsProvider = StreamProvider<List<Tournament>>((ref) async* {
+  final repo = ref.watch(tournamentRepositoryProvider);
+  
+  // Initial load
+  try {
+    final tournaments = await repo.getAllTournaments();
+    yield tournaments;
+  } catch (e) {
+    rethrow;
+  }
+  
+  // Poll every 5 seconds for new/updated tournaments
+  await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    try {
+      final tournaments = await repo.getAllTournaments();
+      yield tournaments;
+    } catch (e) {
+      // Continue polling even on error
+    }
+  }
+});
+
+/// Toggle tournament visibility (hide/show) for admin
+final toggleTournamentVisibilityProvider =
+    FutureProvider.family<Tournament, ({String tournamentId, bool hidden})>((ref, params) async {
+  final repo = ref.watch(tournamentRepositoryProvider);
+  final updated = await repo.toggleTournamentVisibility(params.tournamentId, params.hidden);
+  // Invalidate all relevant providers to refresh UI
+  ref.invalidate(publicTournamentsProvider);
+  ref.invalidate(activeTournamentsProvider);
+  ref.invalidate(tournamentByIdProvider(params.tournamentId));
+  ref.invalidate(allTournamentsProvider); // CRITICAL: Invalidate the list provider
+  // Invalidate org tournaments if we have the tournament
+  final tournament = await repo.getTournamentById(params.tournamentId);
+  if (tournament != null) {
+    ref.invalidate(tournamentsByOrgProvider(tournament.orgId));
+  }
+  return updated;
 });
 
 /// Generate teams and fixtures for a tournament (format-aware)

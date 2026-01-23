@@ -34,4 +34,10 @@ abstract class TournamentRepository {
 
   /// Generate fixtures for a tournament
   Future<Map<String, dynamic>> generateFixtures(String tournamentId);
+
+  /// Toggle hide/show tournament for admin (overrides organiser visibility)
+  Future<Tournament> toggleTournamentVisibility(String tournamentId, bool hidden);
+
+  /// Get all tournaments (admin only - bypasses visibility filters)
+  Future<List<Tournament>> getAllTournaments();
 }

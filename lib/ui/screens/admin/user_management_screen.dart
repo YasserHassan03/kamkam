@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../data/models/user_profile.dart';
 import '../../../providers/user_profile_providers.dart';
+import '../../../providers/auth_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Admin screen for managing user approvals
@@ -35,8 +37,27 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
         title: const Text('User Management'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/admin');
+            }
+          },
         ),
+        actions: [
+          // Refresh button for manual refresh
+          Consumer(
+            builder: (context, ref, _) => IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+              onPressed: () {
+                ref.invalidate(pendingUsersProvider);
+                ref.invalidate(allUsersProvider);
+              },
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -63,21 +84,29 @@ class _PendingUsersTab extends ConsumerWidget {
 
     return pendingAsync.when(
       data: (users) {
-        if (users.isEmpty) {
+        // Double-check: filter to only show pending users (in case RPC returns wrong data)
+        final pendingOnly = users.where((u) => u.isPending).toList();
+        
+        if (pendingOnly.isEmpty) {
           return const EmptyStateWidget(
             icon: Icons.check_circle_outline,
             title: 'No Pending Approvals',
-            subtitle: 'All users have been reviewed',
+            subtitle: 'All users have been reviewed. New signups will appear automatically.',
           );
         }
 
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(pendingUsersProvider),
+          onRefresh: () async {
+            // Force refresh by invalidating the provider
+            ref.invalidate(pendingUsersProvider);
+            // Wait a moment for the refresh
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: users.length,
+            itemCount: pendingOnly.length,
             itemBuilder: (context, index) => _UserCard(
-              user: users[index],
+              user: pendingOnly[index],
               showActions: true,
             ),
           ),
@@ -107,14 +136,29 @@ class _AllUsersTab extends ConsumerWidget {
           );
         }
 
+        // Filter out pending users from "All Users" tab - they should only appear in "Pending" tab
+        final nonPendingUsers = users.where((u) => !u.isPending).toList();
+
+        if (nonPendingUsers.isEmpty) {
+          return const EmptyStateWidget(
+            icon: Icons.people_outline,
+            title: 'No Approved Users',
+            subtitle: 'All users are pending approval',
+          );
+        }
+
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(allUsersProvider),
+          onRefresh: () async {
+            ref.invalidate(allUsersProvider);
+            ref.invalidate(pendingUsersProvider);
+          },
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: users.length,
+            itemCount: nonPendingUsers.length,
             itemBuilder: (context, index) => _UserCard(
-              user: users[index],
-              showActions: users[index].isPending,
+              user: nonPendingUsers[index],
+              showActions: false, // No approve/reject actions in "All Users" tab
+              showDelete: true, // Show delete button for admins
             ),
           ),
         );
@@ -131,10 +175,12 @@ class _AllUsersTab extends ConsumerWidget {
 class _UserCard extends ConsumerWidget {
   final UserProfile user;
   final bool showActions;
+  final bool showDelete;
 
   const _UserCard({
     required this.user,
     this.showActions = false,
+    this.showDelete = false,
   });
 
   @override
@@ -230,6 +276,33 @@ class _UserCard extends ConsumerWidget {
                 ],
               ),
             ],
+            if (showDelete) ...[
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final currentUserId = ref.watch(authStateProvider).value?.id;
+                      final isCurrentUser = currentUserId == user.id;
+                      
+                      if (isCurrentUser) {
+                        return const SizedBox.shrink(); // Don't show delete for current user
+                      }
+                      
+                      return OutlinedButton.icon(
+                        onPressed: () => _showDeleteUserDialog(context, ref),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('Delete User'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -256,23 +329,8 @@ class _UserCard extends ConsumerWidget {
   Future<void> _approveUser(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(approveUserProvider((userId: user.id, role: 'organiser')).future);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${user.email} approved as organiser'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Error handled silently
     }
   }
 
@@ -321,27 +379,51 @@ class _UserCard extends ConsumerWidget {
           userId: user.id,
           reason: reasonController.text.isEmpty ? null : reasonController.text,
         )).future);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${user.email} rejected'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        // Error handled silently
       }
     }
 
     reasonController.dispose();
+  }
+
+  Future<void> _showDeleteUserDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text(
+          'Are you sure you want to delete "${user.email}"?\n\n'
+          'This will permanently delete:\n'
+          '• The user profile\n'
+          '• All organisations owned by this user\n'
+          '• All tournaments owned by this user\n'
+          '• All related data (teams, matches, etc.)\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete User'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(deleteUserProvider(user.id).future);
+      } catch (e) {
+        // Error handled silently
+      }
+    }
   }
 }
 

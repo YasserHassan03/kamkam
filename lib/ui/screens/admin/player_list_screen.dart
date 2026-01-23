@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +6,11 @@ import '../../../core/constants/enums.dart';
 import '../../../data/models/player.dart';
 import '../../../providers/player_providers.dart';
 import '../../../providers/team_providers.dart';
+import '../../../providers/repository_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Screen for managing players in a team
-class PlayerListScreen extends ConsumerWidget {
+class PlayerListScreen extends ConsumerStatefulWidget {
   final String tournamentId;
   final String teamId;
 
@@ -19,9 +21,24 @@ class PlayerListScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final teamAsync = ref.watch(teamByIdProvider(teamId));
-    final playersAsync = ref.watch(playersByTeamProvider(teamId));
+  ConsumerState<PlayerListScreen> createState() => _PlayerListScreenState();
+}
+
+class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Pre-load players to avoid hanging - let provider handle errors naturally
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Just trigger the load, errors will be handled by the provider's when() method
+      ref.read(playersByTeamProvider(widget.teamId));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final teamAsync = ref.watch(teamByIdProvider(widget.teamId));
+    final playersAsync = ref.watch(playersByTeamProvider(widget.teamId));
 
     return Scaffold(
       appBar: AppBar(
@@ -32,12 +49,27 @@ class PlayerListScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/admin/tournaments/$tournamentId/teams/$teamId'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/admin/tournaments/${widget.tournamentId}');
+            }
+          },
         ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(playersByTeamProvider(teamId));
+          ref.invalidate(playersByTeamProvider(widget.teamId));
+          // Wait for refresh with timeout
+          try {
+            await ref.read(playersByTeamProvider(widget.teamId).future)
+                .timeout(const Duration(seconds: 10));
+          } on TimeoutException {
+            // Timeout handled silently
+          } catch (e) {
+            debugPrint('Error refreshing players: $e');
+          }
         },
         child: playersAsync.when(
           data: (players) {
@@ -113,7 +145,9 @@ class PlayerListScreen extends ConsumerWidget {
           loading: () => const LoadingWidget(),
           error: (e, _) => AppErrorWidget(
             message: e.toString(),
-            onRetry: () => ref.invalidate(playersByTeamProvider(teamId)),
+            onRetry: () {
+              ref.invalidate(playersByTeamProvider(widget.teamId));
+            },
           ),
         ),
       ),
@@ -132,7 +166,7 @@ class PlayerListScreen extends ConsumerWidget {
       onSave: (name, position, jerseyNumber, isCaptain) async {
         final player = Player(
           id: '',
-          teamId: teamId,
+          teamId: widget.teamId,
           name: name,
           position: position,
           jerseyNumber: jerseyNumber,
@@ -141,6 +175,7 @@ class PlayerListScreen extends ConsumerWidget {
           updatedAt: DateTime.now(),
         );
         await ref.read(createPlayerProvider(CreatePlayerRequest(player)).future);
+        ref.invalidate(playersByTeamProvider(widget.teamId));
       },
     );
   }
@@ -162,6 +197,7 @@ class PlayerListScreen extends ConsumerWidget {
           isCaptain: isCaptain,
         );
         await ref.read(updatePlayerProvider(UpdatePlayerRequest(updated)).future);
+        ref.invalidate(playersByTeamProvider(widget.teamId));
       },
     );
   }
@@ -240,9 +276,6 @@ class PlayerListScreen extends ConsumerWidget {
             FilledButton(
               onPressed: () async {
                 if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Name is required')),
-                  );
                   return;
                 }
 
@@ -254,17 +287,8 @@ class PlayerListScreen extends ConsumerWidget {
                     int.tryParse(jerseyController.text),
                     isCaptain,
                   );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Player saved')),
-                    );
-                  }
                 } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
+                  // Error handled silently
                 }
               },
               child: const Text('Save'),
@@ -291,17 +315,9 @@ class PlayerListScreen extends ConsumerWidget {
               Navigator.pop(context);
               try {
                 await ref.read(deletePlayerProvider(DeletePlayerRequest(player.id, player.teamId)).future);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Player removed')),
-                  );
-                }
+                ref.invalidate(playersByTeamProvider(player.teamId));
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
+                // Error handled silently
               }
             },
             style: FilledButton.styleFrom(

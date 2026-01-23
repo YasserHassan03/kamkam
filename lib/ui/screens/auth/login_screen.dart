@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/router/app_router.dart';
 
 /// Modern login screen for admin authentication
 class LoginScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isHandlingError = false;
 
   @override
   void dispose() {
@@ -33,30 +36,92 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
+    debugPrint('LoginScreen: Starting login attempt');
+    
     final result = await ref.read(authNotifierProvider.notifier).signIn(
       _emailController.text.trim(),
       _passwordController.text,
     );
 
-    if (!mounted) return;
-
-    result.fold(
-      (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      },
+    debugPrint('LoginScreen: Login result received');
+      
+      result.fold(
+        (error) {
+          debugPrint('LoginScreen: Login error - $error');
+          
+          // Use global navigator key to show dialog even if widget is unmounted
+          // This ensures the error dialog appears even if the router redirects
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final navigatorState = globalNavigatorKey.currentState;
+            if (navigatorState != null) {
+              try {
+                final navigatorContext = navigatorState.context;
+                if (navigatorContext.mounted) {
+                  showDialog(
+                    context: navigatorContext,
+                    barrierDismissible: false,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Theme.of(navigatorContext).colorScheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Login Failed'),
+                        ],
+                      ),
+                      content: Text(error),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(dialogContext).pop();
+                          },
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                  debugPrint('LoginScreen: Error dialog shown via global navigator');
+                }
+              } catch (e) {
+                debugPrint('LoginScreen: Error showing dialog via global navigator: $e');
+              }
+            } else {
+              debugPrint('LoginScreen: Global navigator key currentState is null');
+            }
+          });
+          // DO NOT navigate - stay on login screen
+        },
       (user) {
-        if (widget.redirectTo != null) {
-          context.go(widget.redirectTo!);
-        } else {
-          context.go('/admin');
+        // Only navigate on success
+        // Router will handle redirect based on user profile status
+        // Check if widget is still mounted before navigating
+        if (!mounted) {
+          debugPrint('LoginScreen: Widget unmounted, router will handle redirect automatically');
+          // Router will automatically redirect based on auth state change
+          return;
+        }
+        
+        try {
+          if (widget.redirectTo != null && !widget.redirectTo!.contains('error=')) {
+            context.go(widget.redirectTo!);
+          } else {
+            // Let router decide based on profile
+            context.go('/');
+          }
+        } catch (e) {
+          debugPrint('LoginScreen: Error navigating after login: $e');
+          // Router will handle redirect automatically based on auth state
         }
       },
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for error parameter in URL
   }
 
   @override
@@ -66,6 +131,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      // Add a key to prevent router from replacing this scaffold
+      key: const ValueKey('login_screen'),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

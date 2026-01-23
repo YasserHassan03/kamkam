@@ -103,15 +103,9 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedHomeTeamId == null || _selectedAwayTeamId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select both teams')),
-      );
       return;
     }
     if (_selectedHomeTeamId == _selectedAwayTeamId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Home and away teams must be different')),
-      );
       return;
     }
 
@@ -156,23 +150,10 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing ? 'Match updated' : 'Match created'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
         context.go('/admin/tournaments/${widget.tournamentId}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      // Error handled silently
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -212,11 +193,7 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
         context.go('/admin/tournaments/${widget.tournamentId}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      // Error handled silently
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -575,14 +552,11 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
               final away = int.tryParse(awayScore);
               
               if (home == null || away == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid scores')),
-                );
                 return;
               }
 
               try {
-                final result = await ref.read(
+                await ref.read(
                   updateMatchResultProvider(UpdateResultRequest(
                     matchId: widget.matchId!,
                     tournamentId: widget.tournamentId,
@@ -590,22 +564,8 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
                     awayGoals: away,
                   )).future,
                 );
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(result.success
-                        ? 'Result updated and standings recalculated'
-                        : result.error ?? 'Failed'),
-                    ),
-                  );
-                }
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
+                // Error handled silently
               }
             },
             child: const Text('Update'),
