@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/match.dart';
 import '../data/repositories/match_repository.dart';
@@ -8,8 +9,15 @@ import 'standing_providers.dart';
 /// Matches by tournament provider
 final matchesByTournamentProvider =
     FutureProvider.family<List<Match>, String>((ref, tournamentId) async {
-  final repo = ref.watch(matchRepositoryProvider);
-  return await repo.getMatchesWithTeams(tournamentId);
+  try {
+    final repo = ref.watch(matchRepositoryProvider);
+    return await repo.getMatchesWithTeams(tournamentId);
+  } catch (e, stackTrace) {
+    debugPrint('ERROR: matchesByTournamentProvider failed for tournament $tournamentId');
+    debugPrint('Error: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
+  }
 });
 
 /// Upcoming matches provider
@@ -175,26 +183,33 @@ final deleteAllFixturesProvider =
 /// Bracket provider - groups matches by round (useful for knockout brackets)
 final bracketByTournamentProvider =
     FutureProvider.family<Map<int, List<Match>>, String>((ref, tournamentId) async {
-  final matches = await ref.watch(matchesByTournamentProvider(tournamentId).future);
+  try {
+    final matches = await ref.watch(matchesByTournamentProvider(tournamentId).future);
 
-  // Filter matches which are part of knockout/round structure (round_number present)
-  final bracketMatches = matches.where((m) => m.roundNumber != null).toList();
+    // Filter matches which are part of knockout/round structure (round_number present)
+    final bracketMatches = matches.where((m) => m.roundNumber != null).toList();
 
-  final Map<int, List<Match>> grouped = {};
-  for (final m in bracketMatches) {
-    final r = m.roundNumber!;
-    grouped.putIfAbsent(r, () => []).add(m);
+    final Map<int, List<Match>> grouped = {};
+    for (final m in bracketMatches) {
+      final r = m.roundNumber!;
+      grouped.putIfAbsent(r, () => []).add(m);
+    }
+
+    // Sort matches per round by seed or kickoff
+    for (final key in grouped.keys) {
+      grouped[key]!.sort((a, b) {
+        final aIdx = (a.homeSeed ?? 0) - (a.awaySeed ?? 0);
+        final bIdx = (b.homeSeed ?? 0) - (b.awaySeed ?? 0);
+        return aIdx.compareTo(bIdx);
+      });
+    }
+
+    return grouped;
+  } catch (e, stackTrace) {
+    debugPrint('ERROR: bracketByTournamentProvider failed for tournament $tournamentId');
+    debugPrint('Error: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
   }
-
-  // Sort matches per round by seed or kickoff
-  for (final key in grouped.keys) {
-    grouped[key]!.sort((a, b) {
-      final aIdx = (a.homeSeed ?? 0) - (a.awaySeed ?? 0);
-      final bIdx = (b.homeSeed ?? 0) - (b.awaySeed ?? 0);
-      return aIdx.compareTo(bIdx);
-    });
-  }
-
-  return grouped;
 });
 

@@ -236,8 +236,8 @@ class Tournament extends Equatable {
   ];
 }
 
-TournamentStatus _statusFromJson(String value) =>
-    TournamentStatus.fromString(value);
+TournamentStatus _statusFromJson(String? value) =>
+    TournamentStatus.fromString(value ?? 'draft');
 String _statusToJson(TournamentStatus status) => status.name;
 
 Visibility _visibilityFromJson(String? value) =>

@@ -127,34 +127,47 @@ class Match extends Equatable {
     final homeTeamData = json['home_team'];
     final awayTeamData = json['away_team'];
     
+    // Safe string conversion helper
+    String safeString(dynamic value, String defaultValue) {
+      if (value == null) return defaultValue;
+      return value.toString();
+    }
+    
+    // Safe DateTime parsing helper
+    DateTime? safeDateTime(dynamic value) {
+      if (value == null) return null;
+      try {
+        if (value is DateTime) return value;
+        final str = value.toString();
+        if (str.isEmpty) return null;
+        return DateTime.parse(str);
+      } catch (e) {
+        return null;
+      }
+    }
+    
     return Match(
-      id: json['id'] as String,
-      tournamentId: json['tournament_id'] as String,
-      homeTeamId: json['home_team_id'] as String,
-      awayTeamId: json['away_team_id'] as String,
-      matchday: json['matchday'] as int?,
-      kickoffTime: json['kickoff_time'] == null
-          ? null
-          : DateTime.parse(json['kickoff_time'] as String),
-      venue: json['venue'] as String?,
-      status: _statusFromJson(json['status'] as String? ?? 'scheduled'),
-      homeGoals: json['home_goals'] as int?,
-      awayGoals: json['away_goals'] as int?,
-      previousHomeGoals: json['previous_home_goals'] as int?,
-      previousAwayGoals: json['previous_away_goals'] as int?,
-      notes: json['notes'] as String?,
-      createdAt: json['created_at'] == null
-          ? null
-          : DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] == null
-          ? null
-          : DateTime.parse(json['updated_at'] as String),
-      roundNumber: json['round_number'] as int?,
-      nextMatchId: json['next_match_id'] as String?,
-      homeSeed: json['home_seed'] as int?,
-      awaySeed: json['away_seed'] as int?,
-      homeQualifier: json['home_qualifier'] as String?,
-      awayQualifier: json['away_qualifier'] as String?,
+      id: safeString(json['id'], ''),
+      tournamentId: safeString(json['tournament_id'], ''),
+      homeTeamId: safeString(json['home_team_id'], ''),
+      awayTeamId: safeString(json['away_team_id'], ''),
+      matchday: (json['matchday'] as num?)?.toInt(),
+      kickoffTime: safeDateTime(json['kickoff_time']),
+      venue: json['venue']?.toString(),
+      status: _statusFromJson(json['status']?.toString() ?? 'scheduled'),
+      homeGoals: (json['home_goals'] as num?)?.toInt(),
+      awayGoals: (json['away_goals'] as num?)?.toInt(),
+      previousHomeGoals: (json['previous_home_goals'] as num?)?.toInt(),
+      previousAwayGoals: (json['previous_away_goals'] as num?)?.toInt(),
+      notes: json['notes']?.toString(),
+      createdAt: safeDateTime(json['created_at']),
+      updatedAt: safeDateTime(json['updated_at']),
+      roundNumber: (json['round_number'] as num?)?.toInt(),
+      nextMatchId: json['next_match_id']?.toString(),
+      homeSeed: (json['home_seed'] as num?)?.toInt(),
+      awaySeed: (json['away_seed'] as num?)?.toInt(),
+      homeQualifier: json['home_qualifier']?.toString(),
+      awayQualifier: json['away_qualifier']?.toString(),
       homeTeam: homeTeamData is Map<String, dynamic>
           ? Team.fromJson(homeTeamData)
           : null,

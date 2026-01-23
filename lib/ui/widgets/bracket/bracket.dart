@@ -15,23 +15,76 @@ class Bracket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sort rounds ascending
-    final roundKeys = rounds.keys.toList()..sort();
+    // Sort rounds descending (final on left, first round on right)
+    final roundKeys = rounds.keys.toList()..sort((a, b) => b.compareTo(a));
 
+    if (roundKeys.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate positions for vertical alignment to create tree structure
+    // Each round should be centered relative to the matches that feed into it
+    // Match card structure from _BracketMatchTile analysis:
+    // - Card margin bottom: 8px (spacing between cards)
+    // - Card padding: 12px top + 12px bottom = 24px
+    // - Content inside padding:
+    //   * Row with text + icon button: ~32px (text ~24px + icon button ~32px, but row takes max)
+    //   * SizedBox(height: 6)
+    //   * Text('vs'): ~20px
+    //   * SizedBox(height: 6)
+    //   * Text(away): ~24px
+    //   * Optional if hasResult: SizedBox(8) + Text(score) ~24px = +32px
+    // Content height: 32 + 6 + 20 + 6 + 24 = 88px (without score)
+    // Total card height: 8 (margin) + 24 (padding) + 88 (content) = 120px (without score)
+    // With score: 8 + 24 + 120 = 152px
+    // Using conservative estimate: 140px per card to account for variations
+    const double matchCardHeight = 140.0;
+    
+    // Pre-calculate total heights for all rounds
+    final roundHeights = <int, double>{};
+    for (final r in roundKeys) {
+      final matchCount = rounds[r]!.length;
+      // Total height = (number of matches * card height)
+      // Each card contributes its full height including margin
+      roundHeights[r] = matchCount * matchCardHeight;
+    }
+    
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: roundKeys.map((r) {
+        children: roundKeys.asMap().entries.map((entry) {
+          final roundIndex = entry.key;
+          final r = entry.value;
           final matches = rounds[r]!;
+          
+          // Calculate vertical offset to center this round relative to the round that feeds into it
+          // The round that feeds into this round is the next round in the list (lower round number, more matches)
+          // For example: Round 2 (2 matches) should be centered relative to Round 1 (4 matches)
+          double topOffset = 0;
+          if (roundIndex < roundKeys.length - 1) {
+            // Get the next round (lower number, later in the list) - this is the round that feeds into current round
+            final nextRound = roundKeys[roundIndex + 1];
+            final nextRoundHeight = roundHeights[nextRound]!;
+            final currentRoundHeight = roundHeights[r]!;
+            
+            // Center the current round relative to the next round (which feeds into it)
+            // Example: If Round 1 has 4 matches (560px) and Round 2 has 2 matches (280px)
+            // Offset = (560 - 280) / 2 = 140px to center Round 2
+            topOffset = (nextRoundHeight - currentRoundHeight) / 2;
+            // Ensure offset is never negative
+            if (topOffset < 0) topOffset = 0;
+          }
+          
           return Container(
             width: 220,
             margin: const EdgeInsets.only(right: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Round $r', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
+                // Add top padding to center this round relative to the previous round
+                // This creates the tree-like structure where each round is centered
+                SizedBox(height: topOffset),
                 ...matches.map((m) => _BracketMatchTile(match: m, tournamentId: tournamentId)),
               ],
             ),

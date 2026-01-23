@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../models/tournament.dart';
@@ -21,7 +22,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .order('created_at', ascending: false);
 
     return (response as List).map((json) {
-      return Tournament.fromJson(json);
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
     }).toList();
   }
 
@@ -34,21 +62,106 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .order('season_year', ascending: false)
         .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => Tournament.fromJson(json))
-        .toList();
+    return (response as List).map((json) {
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
+    }).toList();
   }
 
   @override
   Future<Tournament?> getTournamentById(String id) async {
-    final response = await _client
-        .from(DbTables.tournaments)
-        .select()
-        .eq('id', id)
-        .maybeSingle();
+    dynamic response;
+    try {
+      response = await _client
+          .from(DbTables.tournaments)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
 
-    if (response == null) return null;
-    return Tournament.fromJson(response);
+      if (response == null) return null;
+      
+      // Ensure all required fields have values and handle nulls safely
+      final safeResponse = Map<String, dynamic>.from(response);
+      
+      // Safely handle all potentially null String fields
+      safeResponse['id'] = safeResponse['id']?.toString() ?? '';
+      safeResponse['org_id'] = safeResponse['org_id']?.toString() ?? '';
+      safeResponse['owner_id'] = safeResponse['owner_id']?.toString() ?? '';
+      safeResponse['name'] = safeResponse['name']?.toString() ?? '';
+      safeResponse['season_year'] = safeResponse['season_year'] ?? DateTime.now().year;
+      safeResponse['status'] = safeResponse['status']?.toString() ?? 'draft';
+      safeResponse['visibility'] = safeResponse['visibility']?.toString() ?? 'public';
+      safeResponse['format'] = safeResponse['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeResponse['start_date'] != null) {
+        safeResponse['start_date'] = safeResponse['start_date'].toString();
+      }
+      if (safeResponse['end_date'] != null) {
+        safeResponse['end_date'] = safeResponse['end_date'].toString();
+      }
+      if (safeResponse['created_at'] != null) {
+        safeResponse['created_at'] = safeResponse['created_at'].toString();
+      }
+      if (safeResponse['updated_at'] != null) {
+        safeResponse['updated_at'] = safeResponse['updated_at'].toString();
+      }
+      
+      try {
+        final tournament = Tournament.fromJson(safeResponse);
+        // Validate the tournament object was created successfully
+        if (tournament.id.isEmpty) {
+          debugPrint('WARNING: Tournament created with empty ID');
+        }
+        return tournament;
+      } catch (parseError, parseStackTrace) {
+        // Log parsing error with full details
+        debugPrint('ERROR: Failed to parse tournament JSON for id $id');
+        debugPrint('Parse error: $parseError');
+        debugPrint('Parse error type: ${parseError.runtimeType}');
+        debugPrint('Parse stack trace: $parseStackTrace');
+        debugPrint('Raw response type: ${response.runtimeType}');
+        debugPrint('Raw response: $response');
+        debugPrint('Safe response: $safeResponse');
+        if (parseError is TypeError) {
+          debugPrint('TypeError message: ${parseError.toString()}');
+          debugPrint('TypeError stack: ${parseError.stackTrace}');
+        }
+        rethrow;
+      }
+    } catch (e, stackTrace) {
+      // Log error with stack trace for debugging
+      debugPrint('Error loading tournament $id: $e');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('Response data: $response');
+      return null;
+    }
   }
 
   @override
@@ -59,7 +172,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .select()
         .single();
 
-    return Tournament.fromJson(response);
+    // Ensure all required fields have values and handle nulls safely
+    final safeResponse = Map<String, dynamic>.from(response);
+    
+    // Safely convert all fields to strings if needed
+    safeResponse['id'] = safeResponse['id']?.toString() ?? tournament.id;
+    safeResponse['org_id'] = safeResponse['org_id']?.toString() ?? tournament.orgId;
+    safeResponse['owner_id'] = safeResponse['owner_id']?.toString() ?? tournament.ownerId;
+    safeResponse['name'] = safeResponse['name']?.toString() ?? tournament.name;
+    safeResponse['season_year'] = safeResponse['season_year'] ?? tournament.seasonYear;
+    safeResponse['status'] = safeResponse['status']?.toString() ?? tournament.status.name;
+    safeResponse['visibility'] = safeResponse['visibility']?.toString() ?? tournament.visibility.name;
+    safeResponse['format'] = safeResponse['format']?.toString() ?? tournament.format;
+    
+    // Safely handle date fields
+    if (safeResponse['start_date'] != null) {
+      safeResponse['start_date'] = safeResponse['start_date'].toString();
+    }
+    if (safeResponse['end_date'] != null) {
+      safeResponse['end_date'] = safeResponse['end_date'].toString();
+    }
+    if (safeResponse['created_at'] != null) {
+      safeResponse['created_at'] = safeResponse['created_at'].toString();
+    }
+    if (safeResponse['updated_at'] != null) {
+      safeResponse['updated_at'] = safeResponse['updated_at'].toString();
+    }
+
+    return Tournament.fromJson(safeResponse);
   }
 
   @override
@@ -83,7 +223,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .select()
         .single();
 
-    return Tournament.fromJson(response);
+      // Ensure all required fields have values and handle nulls safely
+      final safeResponse = Map<String, dynamic>.from(response);
+      
+      // Safely convert all fields to strings if needed
+      safeResponse['id'] = safeResponse['id']?.toString() ?? tournament.id;
+      safeResponse['org_id'] = safeResponse['org_id']?.toString() ?? tournament.orgId;
+      safeResponse['owner_id'] = safeResponse['owner_id']?.toString() ?? tournament.ownerId;
+      safeResponse['name'] = safeResponse['name']?.toString() ?? tournament.name;
+      safeResponse['season_year'] = safeResponse['season_year'] ?? tournament.seasonYear;
+      safeResponse['status'] = safeResponse['status']?.toString() ?? tournament.status.name;
+      safeResponse['visibility'] = safeResponse['visibility']?.toString() ?? tournament.visibility.name;
+      safeResponse['format'] = safeResponse['format']?.toString() ?? tournament.format;
+      
+      // Safely handle date fields
+      if (safeResponse['start_date'] != null) {
+        safeResponse['start_date'] = safeResponse['start_date'].toString();
+      }
+      if (safeResponse['end_date'] != null) {
+        safeResponse['end_date'] = safeResponse['end_date'].toString();
+      }
+      if (safeResponse['created_at'] != null) {
+        safeResponse['created_at'] = safeResponse['created_at'].toString();
+      }
+      if (safeResponse['updated_at'] != null) {
+        safeResponse['updated_at'] = safeResponse['updated_at'].toString();
+      }
+
+      return Tournament.fromJson(safeResponse);
   }
 
   /// Toggle hide/show tournament for admin (overrides organiser visibility)
@@ -98,7 +265,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .select()
         .single();
 
-    return Tournament.fromJson(response);
+      // Ensure all required fields have values and handle nulls safely
+      final safeResponse = Map<String, dynamic>.from(response);
+      
+      // Safely convert all fields to strings if needed
+      safeResponse['id'] = safeResponse['id']?.toString() ?? tournamentId;
+      safeResponse['org_id'] = safeResponse['org_id']?.toString() ?? '';
+      safeResponse['owner_id'] = safeResponse['owner_id']?.toString() ?? '';
+      safeResponse['name'] = safeResponse['name']?.toString() ?? '';
+      safeResponse['season_year'] = safeResponse['season_year'] ?? DateTime.now().year;
+      safeResponse['status'] = safeResponse['status']?.toString() ?? 'draft';
+      safeResponse['visibility'] = safeResponse['visibility']?.toString() ?? 'public';
+      safeResponse['format'] = safeResponse['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeResponse['start_date'] != null) {
+        safeResponse['start_date'] = safeResponse['start_date'].toString();
+      }
+      if (safeResponse['end_date'] != null) {
+        safeResponse['end_date'] = safeResponse['end_date'].toString();
+      }
+      if (safeResponse['created_at'] != null) {
+        safeResponse['created_at'] = safeResponse['created_at'].toString();
+      }
+      if (safeResponse['updated_at'] != null) {
+        safeResponse['updated_at'] = safeResponse['updated_at'].toString();
+      }
+
+      return Tournament.fromJson(safeResponse);
   }
 
   @override
@@ -115,7 +309,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .order('created_at', ascending: false);
 
     return (response as List).map((json) {
-      return Tournament.fromJson(json);
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
     }).toList();
   }
 
@@ -130,7 +351,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .order('start_date', ascending: true);
 
     return (response as List).map((json) {
-      return Tournament.fromJson(json);
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
     }).toList();
   }
 
@@ -145,7 +393,34 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .limit(20);
 
     return (response as List).map((json) {
-      return Tournament.fromJson(json);
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
     }).toList();
   }
 
@@ -157,7 +432,36 @@ class SupabaseTournamentRepository implements TournamentRepository {
         .eq('owner_id', ownerId) // Filter by owner ID
         .order('created_at', ascending: false);
 
-    return (response as List).map((json) => Tournament.fromJson(json)).toList();
+    return (response as List).map((json) {
+      // Ensure all required fields have values and handle nulls safely
+      final safeJson = Map<String, dynamic>.from(json);
+      
+      // Safely convert all fields to strings if needed
+      safeJson['id'] = safeJson['id']?.toString() ?? '';
+      safeJson['org_id'] = safeJson['org_id']?.toString() ?? '';
+      safeJson['owner_id'] = safeJson['owner_id']?.toString() ?? '';
+      safeJson['name'] = safeJson['name']?.toString() ?? '';
+      safeJson['season_year'] = safeJson['season_year'] ?? DateTime.now().year;
+      safeJson['status'] = safeJson['status']?.toString() ?? 'draft';
+      safeJson['visibility'] = safeJson['visibility']?.toString() ?? 'public';
+      safeJson['format'] = safeJson['format']?.toString() ?? 'league';
+      
+      // Safely handle date fields
+      if (safeJson['start_date'] != null) {
+        safeJson['start_date'] = safeJson['start_date'].toString();
+      }
+      if (safeJson['end_date'] != null) {
+        safeJson['end_date'] = safeJson['end_date'].toString();
+      }
+      if (safeJson['created_at'] != null) {
+        safeJson['created_at'] = safeJson['created_at'].toString();
+      }
+      if (safeJson['updated_at'] != null) {
+        safeJson['updated_at'] = safeJson['updated_at'].toString();
+      }
+      
+      return Tournament.fromJson(safeJson);
+    }).toList();
   }
 
   @override

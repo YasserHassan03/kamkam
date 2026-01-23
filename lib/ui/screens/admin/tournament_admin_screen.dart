@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -218,10 +219,11 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// Bracket overview for knockout / group + knockout tournaments
-class _BracketOverviewTab extends ConsumerWidget {
+
+/// Standings tab for knockout / group phase - shows bracket (draw) instead of standings
+class _BracketStandingsTab extends ConsumerWidget {
   final String tournamentId;
-  const _BracketOverviewTab({required this.tournamentId});
+  const _BracketStandingsTab({required this.tournamentId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -255,47 +257,6 @@ class _BracketOverviewTab extends ConsumerWidget {
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
           onRetry: () => ref.invalidate(bracketByTournamentProvider(tournamentId)),
-        ),
-      ),
-    );
-  }
-}
-
-/// Standings tab for knockout / group phase (reuses league standings table)
-class _BracketStandingsTab extends ConsumerWidget {
-  final String tournamentId;
-  const _BracketStandingsTab({required this.tournamentId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final standingsAsync = ref.watch(standingsByTournamentProvider(tournamentId));
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(standingsByTournamentProvider(tournamentId));
-      },
-      child: standingsAsync.when(
-        data: (standings) {
-          if (standings.isEmpty) {
-            return const Center(
-              child: EmptyStateWidget(
-                icon: Icons.leaderboard,
-                title: 'No Group Standings',
-                subtitle: 'Standings will appear after group matches are played.',
-              ),
-            );
-          }
-
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: StandingsTable(standings: standings),
-          );
-        },
-        loading: () => const LoadingWidget(),
-        error: (e, _) => AppErrorWidget(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(standingsByTournamentProvider(tournamentId)),
         ),
       ),
     );
@@ -538,6 +499,28 @@ class TournamentAdminScreen extends ConsumerWidget {
             body: const Center(child: Text('Tournament not found')),
           );
         }
+        
+        // Validate tournament has required fields before rendering
+        try {
+          // Access all required fields to trigger any type errors early
+          final _ = tournament.id;
+          final __ = tournament.name;
+          final ___ = tournament.format;
+          final ____ = tournament.status;
+        } catch (e, stackTrace) {
+          debugPrint('ERROR: Tournament object has invalid fields');
+          debugPrint('Error: $e');
+          debugPrint('Stack trace: $stackTrace');
+          debugPrint('Tournament data: id=${tournament.id}, name=${tournament.name}, format=${tournament.format}');
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: AppErrorWidget(
+              message: 'Invalid tournament data: $e',
+              onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
+            ),
+          );
+        }
+        
         return DefaultTabController(
           length: 4,
           child: Scaffold(
@@ -581,24 +564,22 @@ class TournamentAdminScreen extends ConsumerWidget {
                   onPressed: () => _showDeleteTournamentDialog(context, ref, tournament.id, tournament.name),
                 ),
               ],
-              bottom: const TabBar(
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: 'Overview'),
-                  Tab(text: 'Teams'),
-                  Tab(text: 'Fixtures'),
-                  Tab(text: 'Standings'),
+                  const Tab(text: 'Overview'),
+                  const Tab(text: 'Teams'),
+                  const Tab(text: 'Fixtures'),
+                  Tab(text: tournament.format == 'league' ? 'Standings' : 'Draw'),
                 ],
               ),
             ),
             body: TabBarView(
               children: [
-                tournament.format == 'league'
-                  ? _OverviewTab(
-                      tournament: tournament,
-                      teamsAsync: teamsAsync,
-                      matchesAsync: matchesAsync,
-                    )
-                  : _BracketOverviewTab(tournamentId: tournamentId),
+                _OverviewTab(
+                  tournament: tournament,
+                  teamsAsync: teamsAsync,
+                  matchesAsync: matchesAsync,
+                ),
                 _TeamsTab(
                   tournamentId: tournamentId,
                   teamsAsync: teamsAsync,
@@ -619,13 +600,22 @@ class TournamentAdminScreen extends ConsumerWidget {
         appBar: AppBar(title: const Text('Loading...')),
         body: const LoadingWidget(),
       ),
-      error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: AppErrorWidget(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
-        ),
-      ),
+      error: (e, stackTrace) {
+        // Log the error with full details
+        debugPrint('ERROR: TournamentAdminScreen - Failed to load tournament $tournamentId');
+        debugPrint('Error: $e');
+        debugPrint('Stack trace: $stackTrace');
+        if (e is TypeError) {
+          debugPrint('TypeError details: ${e.toString()}');
+        }
+        return Scaffold(
+          appBar: AppBar(title: const Text('Error')),
+          body: AppErrorWidget(
+            message: e.toString(),
+            onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
+          ),
+        );
+      },
     );
   }
 }

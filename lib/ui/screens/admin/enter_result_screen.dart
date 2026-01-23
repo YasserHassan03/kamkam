@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../data/models/match.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/team_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
@@ -24,6 +25,37 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
   int _homeScore = 0;
   int _awayScore = 0;
   bool _isLoading = false;
+  bool _scoresInitialized = false;
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+  bool _dateTimeInitialized = false;
+
+  Future<void> _updateMatchDateTime(Match match) async {
+    if (_selectedDate == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Update match with new kickoff time
+      final updated = match.copyWith(
+        kickoffTime: _selectedDate,
+      );
+      
+      await ref.read(updateMatchProvider(UpdateMatchRequest(updated)).future);
+      
+      if (!mounted) return;
+      
+      // Refresh the match data
+      ref.invalidate(matchByIdProvider(widget.matchId));
+      ref.invalidate(matchesByTournamentProvider(widget.tournamentId));
+    } catch (e) {
+      // Error handled silently
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   Future<void> _handleSubmit() async {
     setState(() => _isLoading = true);
@@ -66,15 +98,39 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
         ),
       ),
       body: matchAsync.when(
-        data: (match) {
+        data: (Match? match) {
           if (match == null) {
             return const Center(child: Text('Match not found'));
           }
 
-          // Initialize scores from match if set
-          if (match.homeGoals != null && _homeScore == 0 && _awayScore == 0) {
-            _homeScore = match.homeGoals!;
-            _awayScore = match.awayGoals ?? 0;
+          // Initialize scores from match if set (only once)
+          if (!_scoresInitialized && match.homeGoals != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _homeScore = match.homeGoals ?? 0;
+                  _awayScore = match.awayGoals ?? 0;
+                  _scoresInitialized = true;
+                });
+              }
+            });
+          } else if (!_scoresInitialized) {
+            _scoresInitialized = true;
+          }
+
+          // Initialize date and time from match if set (only once)
+          if (!_dateTimeInitialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  if (match.kickoffTime != null) {
+                    _selectedDate = match.kickoffTime!;
+                    _selectedTime = TimeOfDay.fromDateTime(match.kickoffTime!);
+                  }
+                  _dateTimeInitialized = true;
+                });
+              }
+            });
           }
 
           return teamsAsync.when(
@@ -92,22 +148,27 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Match Info Card
+                    // Match Info Card with Date/Time Editing
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (match.matchday != null)
-                              Text(
-                                'Matchday ${match.matchday}',
-                                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Matchday ${match.matchday}',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
                                 ),
                               ),
                             if (match.venue != null)
                               Padding(
-                                padding: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.only(bottom: 8),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -117,14 +178,93 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                   ],
                                 ),
                               ),
-                            if (match.kickoffTime != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  _formatDateTime(match.kickoffTime!),
-                                  style: Theme.of(context).textTheme.bodySmall,
+                            // Date and Time Selection
+                            Column(
+                              children: [
+                                // Date Picker
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _selectedDate ?? DateTime.now(),
+                                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      );
+                                      if (picked != null) {
+                                        setState(() {
+                                          // If time is set, combine with new date
+                                          if (_selectedTime != null) {
+                                            _selectedDate = DateTime(
+                                              picked.year,
+                                              picked.month,
+                                              picked.day,
+                                              _selectedTime!.hour,
+                                              _selectedTime!.minute,
+                                            );
+                                          } else {
+                                            _selectedDate = picked;
+                                          }
+                                        });
+                                      }
+                                    },
+                                    icon: const Icon(Icons.calendar_today, size: 18),
+                                    label: Text(
+                                      _selectedDate != null
+                                          ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
+                                          : 'Select Date',
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 8),
+                                // Time Picker
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      final picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: _selectedTime ?? TimeOfDay.now(),
+                                      );
+                                      if (picked != null) {
+                                        setState(() {
+                                          _selectedTime = picked;
+                                          // Combine with selected date or use today
+                                          final baseDate = _selectedDate ?? DateTime.now();
+                                          _selectedDate = DateTime(
+                                            baseDate.year,
+                                            baseDate.month,
+                                            baseDate.day,
+                                            picked.hour,
+                                            picked.minute,
+                                          );
+                                        });
+                                      }
+                                    },
+                                    icon: const Icon(Icons.access_time, size: 18),
+                                    label: Text(
+                                      _selectedTime != null
+                                          ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                                          : 'Select Time',
+                                    ),
+                                  ),
+                                ),
+                                if (_selectedDate != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton(
+                                        onPressed: _isLoading ? null : () async {
+                                          await _updateMatchDateTime(match);
+                                        },
+                                        child: const Text('Update Date & Time'),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -150,11 +290,11 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                 score: _homeScore,
                                 enabled: !_isLoading,
                                 onIncrement: () => setState(() => _homeScore++),
-                                onDecrement: () {
+                                onDecrement: () => setState(() {
                                   if (_homeScore > 0) {
-                                    setState(() => _homeScore--);
+                                    _homeScore--;
                                   }
-                                },
+                                }),
                               ),
                             ],
                           ),
@@ -189,11 +329,11 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                 score: _awayScore,
                                 enabled: !_isLoading,
                                 onIncrement: () => setState(() => _awayScore++),
-                                onDecrement: () {
+                                onDecrement: () => setState(() {
                                   if (_awayScore > 0) {
-                                    setState(() => _awayScore--);
+                                    _awayScore--;
                                   }
-                                },
+                                }),
                               ),
                             ],
                           ),
@@ -291,10 +431,6 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDateTime(DateTime dt) {
-    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   String _getResultText(String homeTeam, String awayTeam) {
@@ -406,7 +542,7 @@ class _ScoreCounter extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         IconButton.outlined(
-          onPressed: enabled && score > 0 ? onDecrement : null,
+          onPressed: enabled ? onDecrement : null,
           icon: const Icon(Icons.remove),
           iconSize: 32,
         ),

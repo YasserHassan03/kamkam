@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/tournament.dart';
 import 'repository_providers.dart';
@@ -26,8 +27,15 @@ final tournamentsByOrgProvider =
 /// Single tournament by ID provider
 final tournamentByIdProvider =
     FutureProvider.family<Tournament?, String>((ref, id) async {
-  final repo = ref.watch(tournamentRepositoryProvider);
-  return await repo.getTournamentById(id);
+  try {
+    final repo = ref.watch(tournamentRepositoryProvider);
+    return await repo.getTournamentById(id);
+  } catch (e, stackTrace) {
+    // Log the error for debugging
+    debugPrint('Error in tournamentByIdProvider for id $id: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
+  }
 });
 
 /// Tournament search provider
@@ -138,7 +146,7 @@ final generateTeamsAndFixturesProvider =
   try {
     final response = await matchRepo
         .generateFormatAwareFixtures(tournamentId: params.tournamentId)
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 120)); // Increased to 2 minutes for large tournaments
     final success = response['success'] as bool? ?? false;
     if (!success) {
       final err = response['error'] as String? ?? 'Unknown error generating fixtures';
