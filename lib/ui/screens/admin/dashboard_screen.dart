@@ -163,18 +163,27 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       );
                     }
+                    final orgList = orgs.take(3).toList();
                     return Column(
-                      children: orgs.take(3).map((org) => Card(
-                        child: ListTile(
-                          leading: org.logoUrl != null
-                            ? CircleAvatar(backgroundImage: NetworkImage(org.logoUrl!))
-                            : CircleAvatar(child: Text(org.name[0].toUpperCase())),
-                          title: Text(org.name),
-                          subtitle: Text(org.ownerEmail),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () => context.go('/admin/organisations/${org.id}'),
-                        ),
-                      )).toList(),
+                      children: orgList.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final org = entry.value;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: index < orgList.length - 1 ? 8 : 0),
+                          child: Card(
+                            margin: EdgeInsets.zero,
+                            child: ListTile(
+                              leading: org.logoUrl != null
+                                ? CircleAvatar(backgroundImage: NetworkImage(org.logoUrl!))
+                                : CircleAvatar(child: Text(org.name[0].toUpperCase())),
+                              title: Text(org.name),
+                              subtitle: Text(org.ownerEmail),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => context.go('/admin/organisations/${org.id}'),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     );
                   },
                   loading: () => const LoadingWidget(),
@@ -214,26 +223,32 @@ class DashboardScreen extends ConsumerWidget {
                       );
                     }
                     return Column(
-                      children: tournaments.map((tournament) {
-                        return Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: tournament.status == TournamentStatus.draft
-                                  ? Theme.of(context).colorScheme.tertiaryContainer
-                                  : Theme.of(context).colorScheme.secondaryContainer,
-                              child: Icon(
-                                tournament.status == TournamentStatus.draft
-                                    ? Icons.edit_note
-                                    : Icons.emoji_events,
-                                color: tournament.status == TournamentStatus.draft
-                                    ? Theme.of(context).colorScheme.onTertiaryContainer
-                                    : Theme.of(context).colorScheme.onSecondaryContainer,
+                      children: tournaments.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final tournament = entry.value;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: index < tournaments.length - 1 ? 8 : 0),
+                          child: Card(
+                            margin: EdgeInsets.zero,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: tournament.status == TournamentStatus.draft
+                                    ? Theme.of(context).colorScheme.tertiaryContainer
+                                    : Theme.of(context).colorScheme.secondaryContainer,
+                                child: Icon(
+                                  tournament.status == TournamentStatus.draft
+                                      ? Icons.edit_note
+                                      : Icons.emoji_events,
+                                  color: tournament.status == TournamentStatus.draft
+                                      ? Theme.of(context).colorScheme.onTertiaryContainer
+                                      : Theme.of(context).colorScheme.onSecondaryContainer,
+                                ),
                               ),
+                              title: Text(tournament.name),
+                              subtitle: Text('${tournament.rules.type.displayName} · ${tournament.status.displayName}'),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => context.go('/admin/tournaments/${tournament.id}'),
                             ),
-                            title: Text(tournament.name),
-                            subtitle: Text('${tournament.rules.type.displayName} • ${tournament.status.displayName}'),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                            onTap: () => context.go('/admin/tournaments/${tournament.id}'),
                           ),
                         );
                       }).toList(),

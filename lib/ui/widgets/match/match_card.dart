@@ -84,8 +84,8 @@ class MatchCard extends StatelessWidget {
 
   Widget _buildDateRow(BuildContext context) {
     final dateStr = match.kickoffTime != null
-        ? DateFormat('EEE, d MMM • HH:mm').format(match.kickoffTime!)
-        : 'TBD';
+        ? DateFormat('EEE, d MMM · HH:mm').format(match.kickoffTime!)
+        : 'Date TBD';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

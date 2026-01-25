@@ -122,7 +122,7 @@ class _MatchdayHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            matchday > 0 ? 'Matchday $matchday' : 'Other',
+            matchday > 0 ? 'Matchday $matchday' : 'Knockout Stage',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Theme.of(context).colorScheme.primary,

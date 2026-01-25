@@ -52,20 +52,22 @@ class _OverviewTab extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          // Centered stat cards
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _StatCard(
                 label: 'Teams',
                 value: teams.length.toString(),
                 icon: Icons.groups_rounded,
               ),
+              const SizedBox(width: 12),
               _StatCard(
                 label: 'Matches',
                 value: matches.length.toString(),
                 icon: Icons.calendar_month_rounded,
               ),
+              const SizedBox(width: 12),
               _StatCard(
                 label: 'Played',
                 value: playedMatches.toString(),

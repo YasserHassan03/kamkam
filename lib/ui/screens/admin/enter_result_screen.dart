@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../data/models/match.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/team_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Screen for entering match results with standings update
@@ -36,7 +38,6 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Update match with new kickoff time
       final updated = match.copyWith(
         kickoffTime: _selectedDate,
       );
@@ -45,7 +46,6 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
       
       if (!mounted) return;
       
-      // Refresh the match data
       ref.invalidate(matchByIdProvider(widget.matchId));
       ref.invalidate(matchesByTournamentProvider(widget.tournamentId));
     } catch (e) {
@@ -145,258 +145,292 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
               );
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Match Info Card with Date/Time Editing
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (match.matchday != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  'Matchday ${match.matchday}',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
+                    // Match header with date/time
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          // Matchday badge
+                          if (match.matchday != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Matchday ${match.matchday}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
-                            // Date and Time Selection
-                            Column(
-                              children: [
-                                // Date Picker
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _selectedDate ?? DateTime.now(),
-                                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          // If time is set, combine with new date
-                                          if (_selectedTime != null) {
-                                            _selectedDate = DateTime(
-                                              picked.year,
-                                              picked.month,
-                                              picked.day,
-                                              _selectedTime!.hour,
-                                              _selectedTime!.minute,
-                                            );
-                                          } else {
-                                            _selectedDate = picked;
-                                          }
-                                        });
+                            ),
+                          const SizedBox(height: 16),
+                          
+                          // Date/Time row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _DateTimeChip(
+                                icon: Icons.calendar_today_rounded,
+                                label: _selectedDate != null
+                                    ? DateFormat('EEE, d MMM').format(_selectedDate!)
+                                    : 'Set Date',
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      if (_selectedTime != null) {
+                                        _selectedDate = DateTime(
+                                          picked.year,
+                                          picked.month,
+                                          picked.day,
+                                          _selectedTime!.hour,
+                                          _selectedTime!.minute,
+                                        );
+                                      } else {
+                                        _selectedDate = picked;
                                       }
-                                    },
-                                    icon: const Icon(Icons.calendar_today, size: 18),
-                                    label: Text(
-                                      _selectedDate != null
-                                          ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
-                                          : 'Select Date',
+                                    });
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                              _DateTimeChip(
+                                icon: Icons.access_time_rounded,
+                                label: _selectedTime != null
+                                    ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                                    : 'Set Time',
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: _selectedTime ?? TimeOfDay.now(),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _selectedTime = picked;
+                                      final baseDate = _selectedDate ?? DateTime.now();
+                                      _selectedDate = DateTime(
+                                        baseDate.year,
+                                        baseDate.month,
+                                        baseDate.day,
+                                        picked.hour,
+                                        picked.minute,
+                                      );
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          if (_selectedDate != null && match.kickoffTime != _selectedDate)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: TextButton.icon(
+                                onPressed: _isLoading ? null : () => _updateMatchDateTime(match),
+                                icon: const Icon(Icons.save_rounded, size: 18),
+                                label: const Text('Save Date/Time'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Score entry section
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          // Teams and Score
+                          Row(
+                            children: [
+                              // Home Team
+                              Expanded(
+                                child: _TeamScoreColumn(
+                                  teamName: homeTeam.name,
+                                  shortName: homeTeam.shortName,
+                                  isHome: true,
+                                  score: _homeScore,
+                                  enabled: !_isLoading,
+                                  onIncrement: () => setState(() => _homeScore++),
+                                  onDecrement: () => setState(() {
+                                    if (_homeScore > 0) _homeScore--;
+                                  }),
+                                ),
+                              ),
+                              
+                              // VS divider
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 40),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        'VS',
+                                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                              
+                              // Away Team
+                              Expanded(
+                                child: _TeamScoreColumn(
+                                  teamName: awayTeam.name,
+                                  shortName: awayTeam.shortName,
+                                  isHome: false,
+                                  score: _awayScore,
+                                  enabled: !_isLoading,
+                                  onIncrement: () => setState(() => _awayScore++),
+                                  onDecrement: () => setState(() {
+                                    if (_awayScore > 0) _awayScore--;
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Save Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _isLoading ? null : _handleSubmit,
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: _isLoading 
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check_rounded, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Save Result'),
+                                    ],
+                                  ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Result preview
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Final Score',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // Time Picker
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: () async {
-                                      final picked = await showTimePicker(
-                                        context: context,
-                                        initialTime: _selectedTime ?? TimeOfDay.now(),
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          _selectedTime = picked;
-                                          // Combine with selected date or use today
-                                          final baseDate = _selectedDate ?? DateTime.now();
-                                          _selectedDate = DateTime(
-                                            baseDate.year,
-                                            baseDate.month,
-                                            baseDate.day,
-                                            picked.hour,
-                                            picked.minute,
-                                          );
-                                        });
-                                      }
-                                    },
-                                    icon: const Icon(Icons.access_time, size: 18),
-                                    label: Text(
-                                      _selectedTime != null
-                                          ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
-                                          : 'Select Time',
-                                    ),
-                                  ),
-                                ),
-                                if (_selectedDate != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: FilledButton(
-                                        onPressed: _isLoading ? null : () async {
-                                          await _updateMatchDateTime(match);
-                                        },
-                                        child: const Text('Update Date & Time'),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '$_homeScore',
+                                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: _homeScore > _awayScore 
+                                            ? AppTheme.winColor 
+                                            : null,
                                       ),
                                     ),
-                                  ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        '-',
+                                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                          fontWeight: FontWeight.w300,
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '$_awayScore',
+                                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: _awayScore > _homeScore 
+                                            ? AppTheme.winColor 
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                _ResultBadge(
+                                  homeScore: _homeScore,
+                                  awayScore: _awayScore,
+                                  homeTeam: homeTeam.name,
+                                  awayTeam: awayTeam.name,
+                                ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Score Entry
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Home Team
-                        Expanded(
-                          child: Column(
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Info note
+                          Row(
                             children: [
-                              _TeamDisplay(
-                                name: homeTeam.name,
-                                logoUrl: homeTeam.logoUrl,
-                                isHome: true,
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.outline,
                               ),
-                              const SizedBox(height: 16),
-                              _ScoreCounter(
-                                score: _homeScore,
-                                enabled: !_isLoading,
-                                onIncrement: () => setState(() => _homeScore++),
-                                onDecrement: () => setState(() {
-                                  if (_homeScore > 0) {
-                                    _homeScore--;
-                                  }
-                                }),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Standings will update automatically',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
                               ),
                             ],
-                          ),
-                        ),
-
-                        // VS
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 40,
-                          ),
-                          child: Text(
-                            'VS',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                          ),
-                        ),
-
-                        // Away Team
-                        Expanded(
-                          child: Column(
-                            children: [
-                              _TeamDisplay(
-                                name: awayTeam.name,
-                                logoUrl: awayTeam.logoUrl,
-                                isHome: false,
-                              ),
-                              const SizedBox(height: 16),
-                              _ScoreCounter(
-                                score: _awayScore,
-                                enabled: !_isLoading,
-                                onIncrement: () => setState(() => _awayScore++),
-                                onDecrement: () => setState(() {
-                                  if (_awayScore > 0) {
-                                    _awayScore--;
-                                  }
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Submit Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _isLoading ? null : _handleSubmit,
-                        icon: _isLoading 
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check),
-                        label: Text(_isLoading ? 'Saving...' : 'Save Result'),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Result Preview
-                    Card(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Final Score',
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '$_homeScore - $_awayScore',
-                              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _getResultText(homeTeam.name, awayTeam.name),
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: _getResultColor(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Info Text
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue.shade700,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Submitting this result will automatically update the tournament standings.',
-                              style: TextStyle(color: Colors.blue.shade700),
-                            ),
                           ),
                         ],
                       ),
@@ -420,82 +454,63 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
       ),
     );
   }
-
-  String _getResultText(String homeTeam, String awayTeam) {
-    if (_homeScore > _awayScore) {
-      return '$homeTeam wins!';
-    } else if (_awayScore > _homeScore) {
-      return '$awayTeam wins!';
-    } else {
-      return 'Draw';
-    }
-  }
-
-  Color _getResultColor() {
-    if (_homeScore > _awayScore || _awayScore > _homeScore) {
-      return Colors.green;
-    }
-    return Colors.orange;
-  }
 }
 
-class _TeamDisplay extends StatelessWidget {
-  final String name;
-  final String? logoUrl;
-  final bool isHome;
+/// Date/Time selection chip
+class _DateTimeChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
-  const _TeamDisplay({
-    required this.name,
-    this.logoUrl,
-    required this.isHome,
+  const _DateTimeChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            isHome ? 'HOME' : 'AWAY',
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-        ),
-        const SizedBox(height: 8),
-        CircleAvatar(
-          radius: 32,
-          backgroundImage: logoUrl != null ? NetworkImage(logoUrl!) : null,
-          child: logoUrl == null 
-            ? Text(
-                name[0].toUpperCase(),
-                style: const TextStyle(fontSize: 24),
-              )
-            : null,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          name,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _ScoreCounter extends StatelessWidget {
+/// Team score column
+class _TeamScoreColumn extends StatelessWidget {
+  final String teamName;
+  final String? shortName;
+  final bool isHome;
   final int score;
   final bool enabled;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
 
-  const _ScoreCounter({
+  const _TeamScoreColumn({
+    required this.teamName,
+    this.shortName,
+    required this.isHome,
     required this.score,
     required this.enabled,
     required this.onIncrement,
@@ -506,35 +521,182 @@ class _ScoreCounter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        IconButton.filled(
-          onPressed: enabled ? onIncrement : null,
-          icon: const Icon(Icons.add),
-          iconSize: 32,
-        ),
-        const SizedBox(height: 8),
+        // Home/Away label
         Container(
-          width: 80,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            score.toString(),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            isHome ? 'HOME' : 'AWAY',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.outline,
+              letterSpacing: 0.5,
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        IconButton.outlined(
-          onPressed: enabled ? onDecrement : null,
-          icon: const Icon(Icons.remove),
-          iconSize: 32,
+        const SizedBox(height: 12),
+        
+        // Team name
+        Text(
+          teamName,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (shortName != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            shortName!,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        
+        // Score display with buttons
+        Column(
+          children: [
+            // Increment button
+            _ScoreButton(
+              icon: Icons.add_rounded,
+              enabled: enabled,
+              onPressed: onIncrement,
+              isPrimary: true,
+            ),
+            const SizedBox(height: 8),
+            
+            // Score display
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  score.toString(),
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Decrement button
+            _ScoreButton(
+              icon: Icons.remove_rounded,
+              enabled: enabled && score > 0,
+              onPressed: onDecrement,
+              isPrimary: false,
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+/// Score adjustment button
+class _ScoreButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onPressed;
+  final bool isPrimary;
+
+  const _ScoreButton({
+    required this.icon,
+    required this.enabled,
+    required this.onPressed,
+    required this.isPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Material(
+        color: enabled
+            ? (isPrimary 
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.surfaceContainerHighest)
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: enabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Icon(
+            icon,
+            size: 24,
+            color: enabled
+                ? (isPrimary 
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurface)
+                : Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Result badge
+class _ResultBadge extends StatelessWidget {
+  final int homeScore;
+  final int awayScore;
+  final String homeTeam;
+  final String awayTeam;
+
+  const _ResultBadge({
+    required this.homeScore,
+    required this.awayScore,
+    required this.homeTeam,
+    required this.awayTeam,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String text;
+    Color color;
+
+    if (homeScore > awayScore) {
+      text = '$homeTeam wins';
+      color = AppTheme.winColor;
+    } else if (awayScore > homeScore) {
+      text = '$awayTeam wins';
+      color = AppTheme.winColor;
+    } else {
+      text = 'Draw';
+      color = AppTheme.drawColor;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 }

@@ -1,31 +1,28 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/match.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../core/theme/app_theme.dart';
 
-/// Simple bracket widget: expects rounds map (roundNumber -> list of matches)
+/// Knockout bracket widget with proper tree alignment
 class Bracket extends StatelessWidget {
   final Map<int, List<Match>> rounds;
-
-  /// Tournament id is used to build result route
   final String? tournamentId;
 
   const Bracket({super.key, required this.rounds, this.tournamentId});
 
   @override
   Widget build(BuildContext context) {
-    // Sort rounds so the longest column (most matches) is on the left
-    // and the final (fewest matches) is on the right.
-    // This is robust even if the database round_number scheme differs.
+    // Sort rounds: most matches first (Round 1), fewest last (Final)
     final roundKeys = rounds.keys.toList()
       ..sort((a, b) {
         final aLen = rounds[a]?.length ?? 0;
         final bLen = rounds[b]?.length ?? 0;
         final byLen = bLen.compareTo(aLen);
         if (byLen != 0) return byLen;
-        // Deterministic tie-breaker
         return a.compareTo(b);
       });
 
@@ -33,70 +30,59 @@ class Bracket extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Calculate positions for vertical alignment to create tree structure
-    // Each round should be centered relative to the matches that feed into it
-    // Match card structure from _BracketMatchTile analysis:
-    // - Card margin bottom: 8px (spacing between cards)
-    // - Card padding: 12px top + 12px bottom = 24px
-    // - Content inside padding:
-    //   * Row with text + icon button: ~32px (text ~24px + icon button ~32px, but row takes max)
-    //   * SizedBox(height: 6)
-    //   * Text('vs'): ~20px
-    //   * SizedBox(height: 6)
-    //   * Text(away): ~24px
-    //   * Optional if hasResult: SizedBox(8) + Text(score) ~24px = +32px
-    // Content height: 32 + 6 + 20 + 6 + 24 = 88px (without score)
-    // Total card height: 8 (margin) + 24 (padding) + 88 (content) = 120px (without score)
-    // With score: 8 + 24 + 120 = 152px
-    // Using conservative estimate: 140px per card to account for variations
-    const double matchCardHeight = 140.0;
+    // Match card dimensions
+    const double cardHeight = 90.0;
+    const double baseSpacing = 12.0;
+    const double columnWidth = 180.0;
+    const double columnSpacing = 16.0;
     
-    // Pre-calculate total heights for all rounds
-    final roundHeights = <int, double>{};
-    for (final r in roundKeys) {
-      final matchCount = rounds[r]!.length;
-      // Total height = (number of matches * card height)
-      // Each card contributes its full height including margin
-      roundHeights[r] = matchCount * matchCardHeight;
-    }
-    
+    // Unit = card height + base spacing (the "atom" of the bracket)
+    const double unit = cardHeight + baseSpacing;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: roundKeys.asMap().entries.map((entry) {
           final roundIndex = entry.key;
-          final r = entry.value;
-          final matches = rounds[r]!;
+          final roundKey = entry.value;
+          final matches = rounds[roundKey]!;
           
-          // Calculate vertical offset to center this round relative to the round that feeds into it
-          // The round that feeds into this round is the previous (left) round in the list (more matches).
-          // Example: a 2-match round should be centered relative to a 4-match round.
-          double topOffset = 0;
-          if (roundIndex > 0) {
-            // Get the previous round (earlier in the list) - this is the round that feeds into current round
-            final previousRound = roundKeys[roundIndex - 1];
-            final previousRoundHeight = roundHeights[previousRound]!;
-            final currentRoundHeight = roundHeights[r]!;
-            
-            // Center the current round relative to the previous round (which feeds into it)
-            // Example: If Round 1 has 4 matches (560px) and Round 2 has 2 matches (280px)
-            // Offset = (560 - 280) / 2 = 140px to center Round 2
-            topOffset = (previousRoundHeight - currentRoundHeight) / 2;
-            // Ensure offset is never negative
-            if (topOffset < 0) topOffset = 0;
-          }
+          // Calculate multiplier: 2^roundIndex
+          final multiplier = math.pow(2, roundIndex).toInt();
+          
+          // Top offset = (multiplier - 1) * unit / 2
+          // This centers each round's first card properly
+          final topOffset = (multiplier - 1) * unit / 2;
+          
+          // Spacing between cards = multiplier * unit - cardHeight
+          // This creates the proper tree structure gaps
+          final cardSpacing = multiplier * unit - cardHeight;
           
           return Container(
-            width: 220,
-            margin: const EdgeInsets.only(right: 12),
+            width: columnWidth,
+            margin: EdgeInsets.only(right: roundIndex < roundKeys.length - 1 ? columnSpacing : 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Add top padding to center this round relative to the previous round
-                // This creates the tree-like structure where each round is centered
+                // Top offset for tree alignment
                 SizedBox(height: topOffset),
-                ...matches.map((m) => _BracketMatchTile(match: m, tournamentId: tournamentId)),
+                // Match cards with calculated spacing
+                ...matches.asMap().entries.map((matchEntry) {
+                  final matchIndex = matchEntry.key;
+                  final match = matchEntry.value;
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: matchIndex < matches.length - 1 ? cardSpacing : 0,
+                    ),
+                    child: _BracketMatchTile(
+                      match: match,
+                      tournamentId: tournamentId,
+                      height: cardHeight,
+                    ),
+                  );
+                }),
               ],
             ),
           );
@@ -109,13 +95,17 @@ class Bracket extends StatelessWidget {
 class _BracketMatchTile extends ConsumerWidget {
   final Match match;
   final String? tournamentId;
+  final double height;
 
-  const _BracketMatchTile({required this.match, this.tournamentId});
+  const _BracketMatchTile({
+    required this.match,
+    this.tournamentId,
+    required this.height,
+  });
 
   Future<void> _showQuickResultDialog(BuildContext context, WidgetRef ref) async {
     final homeController = TextEditingController(text: match.homeGoals?.toString() ?? '0');
     final awayController = TextEditingController(text: match.awayGoals?.toString() ?? '0');
-
     final formKey = GlobalKey<FormState>();
 
     await showDialog(
@@ -133,6 +123,7 @@ class _BracketMatchTile extends ConsumerWidget {
                 decoration: InputDecoration(labelText: match.homeTeam?.name ?? 'Home'),
                 validator: (v) => int.tryParse(v ?? '') == null ? 'Enter number' : null,
               ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: awayController,
                 keyboardType: TextInputType.number,
@@ -157,8 +148,6 @@ class _BracketMatchTile extends ConsumerWidget {
                 homeGoals: home,
                 awayGoals: away,
               )).future);
-
-              // Result saved or error handled silently
             },
             child: const Text('Save'),
           ),
@@ -171,46 +160,145 @@ class _BracketMatchTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = match.homeTeam?.name ?? match.homeQualifier ?? 'TBD';
     final away = match.awayTeam?.name ?? match.awayQualifier ?? 'TBD';
-    
-    // Check if user is authenticated
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final hasResult = match.hasResult;
+    final homeWins = hasResult && (match.homeGoals ?? 0) > (match.awayGoals ?? 0);
+    final awayWins = hasResult && (match.awayGoals ?? 0) > (match.homeGoals ?? 0);
 
-    return InkWell(
-      onTap: isAuthenticated ? () {
-        // Navigate to match result/ detail screen if possible
-        if (tournamentId != null) {
-          context.go('/admin/tournaments/$tournamentId/matches/${match.id}/result');
-        } else {
-          context.go('/admin/tournaments/${match.tournamentId}/matches/${match.id}/result');
-        }
-      } : null,
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+    return SizedBox(
+      height: height,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isAuthenticated ? () {
+              if (tournamentId != null) {
+                context.go('/admin/tournaments/$tournamentId/matches/${match.id}/result');
+              } else {
+                context.go('/admin/tournaments/${match.tournamentId}/matches/${match.id}/result');
+              }
+            } : null,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
                 children: [
-                  Expanded(child: Text(home, style: Theme.of(context).textTheme.bodyLarge)),
-                  if (isAuthenticated)
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      tooltip: 'Quick result',
-                      onPressed: () => _showQuickResultDialog(context, ref),
+                  // Teams column
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Home team row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                home,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: homeWins ? FontWeight.w700 : FontWeight.w500,
+                                  color: homeWins ? AppTheme.winColor : null,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (hasResult)
+                              SizedBox(
+                                width: 24,
+                                child: Text(
+                                  '${match.homeGoals}',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: homeWins ? AppTheme.winColor : null,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Divider with "vs" text
+                        Row(
+                          children: [
+                            Text(
+                              'vs',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: Theme.of(context).colorScheme.outlineVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Away team row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                away,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: awayWins ? FontWeight.w700 : FontWeight.w500,
+                                  color: awayWins ? AppTheme.winColor : null,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (hasResult)
+                              SizedBox(
+                                width: 24,
+                                child: Text(
+                                  '${match.awayGoals}',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: awayWins ? AppTheme.winColor : null,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Edit button (only for authenticated users, matches without result)
+                  if (isAuthenticated && !hasResult)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.edit_rounded,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                        tooltip: 'Enter result',
+                        onPressed: () => _showQuickResultDialog(context, ref),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                      ),
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text('vs', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 6),
-              Text(away, style: Theme.of(context).textTheme.bodyLarge),
-              if (match.hasResult) ...[
-                const SizedBox(height: 8),
-                Text(match.scoreDisplay, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
-              ]
-            ],
+            ),
           ),
         ),
       ),
