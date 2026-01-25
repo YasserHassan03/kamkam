@@ -1,4 +1,5 @@
 import '../models/player.dart';
+import '../models/golden_boot_entry.dart';
 
 /// Repository interface for Player data operations
 abstract class PlayerRepository {
@@ -22,4 +23,7 @@ abstract class PlayerRepository {
 
   /// Get player count for a team
   Future<int> getPlayerCount(String teamId);
+
+  /// Get Golden Boot table (players + goals) for a tournament
+  Future<List<GoldenBootEntry>> getGoldenBoot(String tournamentId);
 }

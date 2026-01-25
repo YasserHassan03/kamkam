@@ -26,7 +26,6 @@ class FixtureFormScreen extends ConsumerStatefulWidget {
 class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _matchdayController = TextEditingController();
-  final _venueController = TextEditingController();
   final _homeScoreController = TextEditingController();
   final _awayScoreController = TextEditingController();
   
@@ -44,7 +43,6 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
   @override
   void dispose() {
     _matchdayController.dispose();
-    _venueController.dispose();
     _homeScoreController.dispose();
     _awayScoreController.dispose();
     super.dispose();
@@ -56,7 +54,6 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
     _selectedAwayTeamId = match.awayTeamId;
     _selectedStatus = match.status.name;
     _matchdayController.text = match.matchday?.toString() ?? '';
-    _venueController.text = match.venue ?? '';
     _homeScoreController.text = match.homeGoals?.toString() ?? '';
     _awayScoreController.text = match.awayGoals?.toString() ?? '';
     _scheduledAt = match.kickoffTime;
@@ -125,7 +122,6 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
           awayTeamId: _selectedAwayTeamId!,
           status: MatchStatus.values.firstWhere((e) => e.name == _selectedStatus),
           matchday: matchday,
-          venue: _venueController.text.trim().isEmpty ? null : _venueController.text.trim(),
           kickoffTime: _combineDateAndTime(),
           homeGoals: homeScore,
           awayGoals: awayScore,
@@ -139,7 +135,6 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
           awayTeamId: _selectedAwayTeamId!,
           status: MatchStatus.values.firstWhere((e) => e.name == _selectedStatus),
           matchday: matchday,
-          venue: _venueController.text.trim().isEmpty ? null : _venueController.text.trim(),
           kickoffTime: _combineDateAndTime(),
           homeGoals: homeScore,
           awayGoals: awayScore,
@@ -419,17 +414,6 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _venueController,
-                  enabled: !_isLoading,
-                  decoration: const InputDecoration(
-                    labelText: 'Venue',
-                    hintText: 'e.g., Main Field',
-                    prefixIcon: Icon(Icons.location_on),
-                  ),
                 ),
                 const SizedBox(height: 24),
 

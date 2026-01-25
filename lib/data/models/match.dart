@@ -24,8 +24,6 @@ class Match extends Equatable {
   @JsonKey(name: 'kickoff_time')
   final DateTime? kickoffTime;
   
-  final String? venue;
-  
   @JsonKey(fromJson: _statusFromJson, toJson: _statusToJson)
   final MatchStatus status;
   
@@ -82,7 +80,6 @@ class Match extends Equatable {
     required this.awayTeamId,
     this.matchday,
     this.kickoffTime,
-    this.venue,
     this.status = MatchStatus.scheduled,
     this.homeGoals,
     this.awayGoals,
@@ -153,7 +150,6 @@ class Match extends Equatable {
       awayTeamId: safeString(json['away_team_id'], ''),
       matchday: (json['matchday'] as num?)?.toInt(),
       kickoffTime: safeDateTime(json['kickoff_time']),
-      venue: json['venue']?.toString(),
       status: _statusFromJson(json['status']?.toString() ?? 'scheduled'),
       homeGoals: (json['home_goals'] as num?)?.toInt(),
       awayGoals: (json['away_goals'] as num?)?.toInt(),
@@ -185,7 +181,6 @@ class Match extends Equatable {
     'away_team_id': awayTeamId,
     'matchday': matchday,
     'kickoff_time': kickoffTime?.toIso8601String(),
-    'venue': venue,
     'status': status.jsonValue,
     'notes': notes,
   };
@@ -197,7 +192,6 @@ class Match extends Equatable {
     String? awayTeamId,
     int? matchday,
     DateTime? kickoffTime,
-    String? venue,
     MatchStatus? status,
     int? homeGoals,
     int? awayGoals,
@@ -222,7 +216,6 @@ class Match extends Equatable {
       awayTeamId: awayTeamId ?? this.awayTeamId,
       matchday: matchday ?? this.matchday,
       kickoffTime: kickoffTime ?? this.kickoffTime,
-      venue: venue ?? this.venue,
       status: status ?? this.status,
       homeGoals: homeGoals ?? this.homeGoals,
       awayGoals: awayGoals ?? this.awayGoals,
@@ -245,7 +238,7 @@ class Match extends Equatable {
   @override
   List<Object?> get props => [
     id, tournamentId, homeTeamId, awayTeamId, matchday, kickoffTime,
-    venue, status, homeGoals, awayGoals, previousHomeGoals, previousAwayGoals,
+    status, homeGoals, awayGoals, previousHomeGoals, previousAwayGoals,
     notes, createdAt, updatedAt, roundNumber, nextMatchId, homeSeed, awaySeed, homeQualifier, awayQualifier,
     homeTeam, awayTeam
   ];

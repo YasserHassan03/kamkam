@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
+import '../models/golden_boot_entry.dart';
 import '../models/player.dart';
 import '../repositories/player_repository.dart';
 
@@ -45,12 +46,12 @@ class SupabasePlayerRepository implements PlayerRepository {
 
   @override
   Future<Player> updatePlayer(Player player) async {
-    // Only update columns that exist in the database schema
-    // The players table only has: id, team_id, name, contact_info, created_at, updated_at
     final response = await _client
         .from(DbTables.players)
         .update({
           'name': player.name,
+          'player_number': player.playerNumber,
+          'goals': player.goals,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', player.id)
@@ -87,5 +88,51 @@ class SupabasePlayerRepository implements PlayerRepository {
         .count(CountOption.exact);
 
     return response.count;
+  }
+
+  @override
+  Future<List<GoldenBootEntry>> getGoldenBoot(String tournamentId) async {
+    final response = await _client
+        .from(DbTables.players)
+        .select('''
+          id,
+          name,
+          team_id,
+          player_number,
+          goals,
+          team:teams!inner(
+            id,
+            name,
+            tournament_id
+          )
+        ''')
+        .eq('team.tournament_id', tournamentId)
+        .order('goals', ascending: false, nullsFirst: false)
+        .order('name');
+
+    final entries = (response as List).map((row) {
+      final map = row as Map<String, dynamic>;
+      final team = map['team'] as Map<String, dynamic>?;
+
+      return GoldenBootEntry(
+        playerId: map['id'] as String,
+        playerName: (map['name'] as String?) ?? '',
+        teamId: map['team_id'] as String,
+        teamName: (team?['name'] as String?) ?? 'Unknown Team',
+        playerNumber: (map['player_number'] as num?)?.toInt(),
+        goals: (map['goals'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
+
+    // Defensive deterministic sorting (goals desc, then name asc, then id asc)
+    entries.sort((a, b) {
+      final goalsCmp = b.goals.compareTo(a.goals);
+      if (goalsCmp != 0) return goalsCmp;
+      final nameCmp = a.playerName.toLowerCase().compareTo(b.playerName.toLowerCase());
+      if (nameCmp != 0) return nameCmp;
+      return a.playerId.compareTo(b.playerId);
+    });
+
+    return entries;
   }
 }

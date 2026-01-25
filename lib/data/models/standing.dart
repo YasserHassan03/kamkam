@@ -13,6 +13,9 @@ class Standing extends Equatable {
   @JsonKey(name: 'tournament_id')
   final String tournamentId;
   
+  @JsonKey(name: 'group_id')
+  final String? groupId;
+  
   @JsonKey(name: 'team_id')
   final String teamId;
   
@@ -48,6 +51,7 @@ class Standing extends Equatable {
   const Standing({
     required this.id,
     required this.tournamentId,
+    this.groupId,
     required this.teamId,
     this.played = 0,
     this.won = 0,
@@ -87,6 +91,7 @@ class Standing extends Equatable {
     return Standing(
       id: json['id'] as String,
       tournamentId: json['tournament_id'] as String,
+      groupId: json['group_id'] as String?,
       teamId: json['team_id'] as String,
       played: json['played'] as int? ?? 0,
       won: json['won'] as int? ?? 0,
@@ -111,6 +116,7 @@ class Standing extends Equatable {
   Standing copyWith({
     String? id,
     String? tournamentId,
+    String? groupId,
     String? teamId,
     int? played,
     int? won,
@@ -128,6 +134,7 @@ class Standing extends Equatable {
     return Standing(
       id: id ?? this.id,
       tournamentId: tournamentId ?? this.tournamentId,
+      groupId: groupId ?? this.groupId,
       teamId: teamId ?? this.teamId,
       played: played ?? this.played,
       won: won ?? this.won,
@@ -146,7 +153,7 @@ class Standing extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, tournamentId, teamId, played, won, drawn, lost,
+    id, tournamentId, groupId, teamId, played, won, drawn, lost,
     goalsFor, goalsAgainst, goalDifference, points, form, updatedAt, team
   ];
 }

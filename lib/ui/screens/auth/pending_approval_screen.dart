@@ -25,11 +25,9 @@ class PendingApprovalScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authNotifierProvider.notifier).signOut();
-              if (context.mounted) {
-                context.go('/');
-              }
+            onPressed: () {
+              // Just sign out - router will handle redirect to '/'
+              ref.read(authNotifierProvider.notifier).signOut();
             },
             tooltip: 'Sign out',
           ),

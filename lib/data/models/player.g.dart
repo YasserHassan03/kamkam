@@ -10,9 +10,8 @@ Player _$PlayerFromJson(Map<String, dynamic> json) => Player(
   id: json['id'] as String,
   teamId: json['team_id'] as String,
   name: json['name'] as String,
-  jerseyNumber: (json['jersey_number'] as num?)?.toInt(),
-  position: _positionFromJson(json['position'] as String?),
-  isCaptain: json['is_captain'] as bool? ?? false,
+  playerNumber: (json['player_number'] as num?)?.toInt(),
+  goals: (json['goals'] as num?)?.toInt(),
   createdAt: json['created_at'] == null
       ? null
       : DateTime.parse(json['created_at'] as String),
@@ -25,9 +24,8 @@ Map<String, dynamic> _$PlayerToJson(Player instance) => <String, dynamic>{
   'id': instance.id,
   'team_id': instance.teamId,
   'name': instance.name,
-  'jersey_number': instance.jerseyNumber,
-  'position': _positionToJson(instance.position),
-  'is_captain': instance.isCaptain,
+  'player_number': instance.playerNumber,
+  'goals': instance.goals,
   'created_at': instance.createdAt?.toIso8601String(),
   'updated_at': instance.updatedAt?.toIso8601String(),
 };

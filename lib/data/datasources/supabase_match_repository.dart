@@ -135,7 +135,6 @@ class SupabaseMatchRepository implements MatchRepository {
           'away_team_id': match.awayTeamId,
           'matchday': match.matchday,
           'kickoff_time': match.kickoffTime?.toIso8601String(),
-          'venue': match.venue,
           'status': match.status.jsonValue,
           'notes': match.notes,
         })
@@ -217,6 +216,27 @@ class SupabaseMatchRepository implements MatchRepository {
     });
 
     return response as Map<String, dynamic>;
+  }
+
+  @override
+  Future<KnockoutStageGenerationResult> generateGroupKnockoutKnockouts({
+    required String tournamentId,
+  }) async {
+    try {
+      final response = await _client.rpc(
+        RpcFunctions.generateGroupKnockoutKnockouts,
+        params: {
+          'p_tournament_id': tournamentId,
+        },
+      );
+
+      return KnockoutStageGenerationResult.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      return KnockoutStageGenerationResult(
+        success: false,
+        error: e.toString(),
+      );
+    }
   }
 
   @override

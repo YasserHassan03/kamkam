@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/match.dart';
 import '../../../providers/match_providers.dart';
+import '../../../providers/auth_providers.dart';
 
 /// Simple bracket widget: expects rounds map (roundNumber -> list of matches)
 class Bracket extends StatelessWidget {
@@ -15,8 +16,18 @@ class Bracket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sort rounds descending (final on left, first round on right)
-    final roundKeys = rounds.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Sort rounds so the longest column (most matches) is on the left
+    // and the final (fewest matches) is on the right.
+    // This is robust even if the database round_number scheme differs.
+    final roundKeys = rounds.keys.toList()
+      ..sort((a, b) {
+        final aLen = rounds[a]?.length ?? 0;
+        final bLen = rounds[b]?.length ?? 0;
+        final byLen = bLen.compareTo(aLen);
+        if (byLen != 0) return byLen;
+        // Deterministic tie-breaker
+        return a.compareTo(b);
+      });
 
     if (roundKeys.isEmpty) {
       return const SizedBox.shrink();
@@ -59,19 +70,19 @@ class Bracket extends StatelessWidget {
           final matches = rounds[r]!;
           
           // Calculate vertical offset to center this round relative to the round that feeds into it
-          // The round that feeds into this round is the next round in the list (lower round number, more matches)
-          // For example: Round 2 (2 matches) should be centered relative to Round 1 (4 matches)
+          // The round that feeds into this round is the previous (left) round in the list (more matches).
+          // Example: a 2-match round should be centered relative to a 4-match round.
           double topOffset = 0;
-          if (roundIndex < roundKeys.length - 1) {
-            // Get the next round (lower number, later in the list) - this is the round that feeds into current round
-            final nextRound = roundKeys[roundIndex + 1];
-            final nextRoundHeight = roundHeights[nextRound]!;
+          if (roundIndex > 0) {
+            // Get the previous round (earlier in the list) - this is the round that feeds into current round
+            final previousRound = roundKeys[roundIndex - 1];
+            final previousRoundHeight = roundHeights[previousRound]!;
             final currentRoundHeight = roundHeights[r]!;
             
-            // Center the current round relative to the next round (which feeds into it)
+            // Center the current round relative to the previous round (which feeds into it)
             // Example: If Round 1 has 4 matches (560px) and Round 2 has 2 matches (280px)
             // Offset = (560 - 280) / 2 = 140px to center Round 2
-            topOffset = (nextRoundHeight - currentRoundHeight) / 2;
+            topOffset = (previousRoundHeight - currentRoundHeight) / 2;
             // Ensure offset is never negative
             if (topOffset < 0) topOffset = 0;
           }
@@ -140,7 +151,7 @@ class _BracketMatchTile extends ConsumerWidget {
               final away = int.parse(awayController.text);
               Navigator.of(ctx).pop();
 
-              final result = await ref.read(updateMatchResultProvider(UpdateResultRequest(
+              await ref.read(updateMatchResultProvider(UpdateResultRequest(
                 matchId: match.id,
                 tournamentId: tournamentId ?? match.tournamentId,
                 homeGoals: home,
@@ -160,16 +171,19 @@ class _BracketMatchTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = match.homeTeam?.name ?? match.homeQualifier ?? 'TBD';
     final away = match.awayTeam?.name ?? match.awayQualifier ?? 'TBD';
+    
+    // Check if user is authenticated
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     return InkWell(
-      onTap: () {
+      onTap: isAuthenticated ? () {
         // Navigate to match result/ detail screen if possible
         if (tournamentId != null) {
           context.go('/admin/tournaments/$tournamentId/matches/${match.id}/result');
         } else {
           context.go('/admin/tournaments/${match.tournamentId}/matches/${match.id}/result');
         }
-      },
+      } : null,
       child: Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: Padding(
@@ -180,11 +194,12 @@ class _BracketMatchTile extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: Text(home, style: Theme.of(context).textTheme.bodyLarge)),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    tooltip: 'Quick result',
-                    onPressed: () => _showQuickResultDialog(context, ref),
-                  ),
+                  if (isAuthenticated)
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 18),
+                      tooltip: 'Quick result',
+                      onPressed: () => _showQuickResultDialog(context, ref),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),

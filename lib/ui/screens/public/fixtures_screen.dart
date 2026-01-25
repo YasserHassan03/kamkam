@@ -81,7 +81,6 @@ class FixturesScreen extends ConsumerWidget {
                     _MatchdayHeader(matchday: matchday),
                     ...dayMatches.map((match) => MatchCard(
                       match: match,
-                      showVenue: true,
                       onTap: isAuthenticated
                           ? () => context.push('/admin/tournaments/$tournamentId/matches/${match.id}/result')
                           : null,

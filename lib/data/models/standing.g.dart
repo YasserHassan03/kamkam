@@ -9,6 +9,7 @@ part of 'standing.dart';
 Standing _$StandingFromJson(Map<String, dynamic> json) => Standing(
   id: json['id'] as String,
   tournamentId: json['tournament_id'] as String,
+  groupId: json['group_id'] as String?,
   teamId: json['team_id'] as String,
   played: (json['played'] as num?)?.toInt() ?? 0,
   won: (json['won'] as num?)?.toInt() ?? 0,
@@ -30,6 +31,7 @@ Standing _$StandingFromJson(Map<String, dynamic> json) => Standing(
 Map<String, dynamic> _$StandingToJson(Standing instance) => <String, dynamic>{
   'id': instance.id,
   'tournament_id': instance.tournamentId,
+  'group_id': instance.groupId,
   'team_id': instance.teamId,
   'played': instance.played,
   'won': instance.won,

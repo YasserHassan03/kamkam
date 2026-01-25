@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/models/golden_boot_entry.dart';
 import '../data/models/player.dart';
 import 'repository_providers.dart';
 
@@ -21,6 +22,13 @@ final playerCountProvider =
     FutureProvider.family<int, String>((ref, teamId) async {
   final repo = ref.watch(playerRepositoryProvider);
   return await repo.getPlayerCount(teamId);
+});
+
+/// Golden boot by tournament provider (players ordered by goals)
+final goldenBootProvider =
+    FutureProvider.family<List<GoldenBootEntry>, String>((ref, tournamentId) async {
+  final repo = ref.watch(playerRepositoryProvider);
+  return await repo.getGoldenBoot(tournamentId);
 });
 
 /// Create player request class

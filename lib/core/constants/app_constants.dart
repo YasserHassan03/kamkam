@@ -103,4 +103,5 @@ class RpcFunctions {
 
   static const String updateMatchResult = 'update_match_result';
   static const String generateRoundRobinFixtures = 'generate_round_robin_fixtures';
+  static const String generateGroupKnockoutKnockouts = 'generate_group_knockout_knockouts';
 }

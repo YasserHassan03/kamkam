@@ -27,6 +27,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _seasonYearController = TextEditingController(text: DateTime.now().year.toString());
+  final _venueController = TextEditingController();
   final _roundsController = TextEditingController(text: '1');
   final _winPointsController = TextEditingController(text: '3');
   final _drawPointsController = TextEditingController(text: '1');
@@ -53,6 +54,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
   void dispose() {
     _nameController.dispose();
     _seasonYearController.dispose();
+    _venueController.dispose();
     _roundsController.dispose();
     _winPointsController.dispose();
     _drawPointsController.dispose();
@@ -67,6 +69,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
     if (_isInitialized) return;
     _nameController.text = tournament.name;
     _seasonYearController.text = tournament.seasonYear.toString();
+    _venueController.text = tournament.venue ?? '';
     _selectedOrgId = tournament.ownerId;
     _selectedType = tournament.rules.type;
     _selectedStatus = tournament.status;
@@ -193,6 +196,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
           format: format,
           groupCount: groupCount,
           qualifiersPerGroup: qualifiersPerGroup,
+          venue: _venueController.text.trim().isEmpty ? null : _venueController.text.trim(),
         );
         await ref.read(updateTournamentProvider(updated).future);
       } else {
@@ -211,6 +215,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
           format: format,
           groupCount: groupCount,
           qualifiersPerGroup: qualifiersPerGroup,
+          venue: _venueController.text.trim().isEmpty ? null : _venueController.text.trim(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -443,6 +448,18 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+
+            // Venue Field
+            TextFormField(
+              controller: _venueController,
+              enabled: !_isLoading,
+              decoration: const InputDecoration(
+                labelText: 'Venue',
+                hintText: 'e.g., City Stadium',
+                prefixIcon: Icon(Icons.location_on),
+              ),
             ),
             const SizedBox(height: 24),
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/enums.dart';
 import '../../../data/models/match.dart';
+import '../../../data/models/standing.dart';
 import '../../../data/models/team.dart';
 import '../../../data/models/tournament.dart';
 import '../../../providers/tournament_providers.dart';
@@ -223,10 +224,40 @@ class _StatCard extends StatelessWidget {
 /// Standings tab for knockout / group phase - shows bracket (draw) instead of standings
 class _BracketStandingsTab extends ConsumerWidget {
   final String tournamentId;
-  const _BracketStandingsTab({required this.tournamentId});
+  final Tournament tournament;
+  const _BracketStandingsTab({
+    required this.tournamentId,
+    required this.tournament,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // For group_knockout format, show sub-tabs for Groups and Knockouts
+    if (tournament.format == 'group_knockout') {
+      return DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Groups'),
+                Tab(text: 'Knockouts'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _GroupsTab(tournamentId: tournamentId),
+                  _KnockoutsTab(tournamentId: tournamentId),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // For knockout format, just show the bracket
     final bracketAsync = ref.watch(bracketByTournamentProvider(tournamentId));
 
     return RefreshIndicator(
@@ -257,6 +288,251 @@ class _BracketStandingsTab extends ConsumerWidget {
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
           onRetry: () => ref.invalidate(bracketByTournamentProvider(tournamentId)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Groups tab for group_knockout tournaments - shows standings for each group
+class _GroupsTab extends ConsumerWidget {
+  final String tournamentId;
+  const _GroupsTab({required this.tournamentId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final standingsAsync = ref.watch(standingsByTournamentProvider(tournamentId));
+    final tournamentAsync = ref.watch(tournamentByIdProvider(tournamentId));
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(standingsByTournamentProvider(tournamentId));
+        ref.invalidate(tournamentByIdProvider(tournamentId));
+      },
+      child: tournamentAsync.when(
+        data: (tournament) {
+          final qualifiersPerGroup = tournament?.qualifiersPerGroup;
+          
+          return standingsAsync.when(
+            data: (allStandings) {
+          // Group standings by group_id
+          final standingsByGroup = <String?, List<Standing>>{};
+          
+          for (final standing in allStandings) {
+            final groupId = standing.groupId;
+            standingsByGroup.putIfAbsent(groupId, () => []).add(standing);
+          }
+
+          // Filter out null group_id (those are for league format, not group stage)
+          final groupStandings = standingsByGroup.entries
+              .where((entry) => entry.key != null)
+              .toList();
+
+          if (groupStandings.isEmpty) {
+            return const Center(
+              child: EmptyStateWidget(
+                icon: Icons.groups_rounded,
+                title: 'No Group Standings Yet',
+                subtitle: 'Generate fixtures to create group stage matches.',
+              ),
+            );
+          }
+
+          // Sort groups by group_id (or by first team's group number if available)
+          groupStandings.sort((a, b) {
+            // Sort by group_id as string for consistent ordering
+            return (a.key ?? '').compareTo(b.key ?? '');
+          });
+          
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: groupStandings.length,
+            itemBuilder: (context, index) {
+              final groupEntry = groupStandings[index];
+              final groupStandingsList = groupEntry.value;
+              
+              // Sort standings by points, GD, GF
+              groupStandingsList.sort((a, b) {
+                final pointsDiff = b.points.compareTo(a.points);
+                if (pointsDiff != 0) return pointsDiff;
+                final gdDiff = b.goalDifference.compareTo(a.goalDifference);
+                if (gdDiff != 0) return gdDiff;
+                return b.goalsFor.compareTo(a.goalsFor);
+              });
+
+              // Assign positions within the group (1, 2, 3, ...) based on sorted order
+              // This overrides the global position from the database
+              for (int i = 0; i < groupStandingsList.length; i++) {
+                groupStandingsList[i] = groupStandingsList[i].copyWith(
+                  position: i + 1,
+                );
+              }
+
+              // Get group name - use groupNumber to convert to letter (Group A, B, C, etc.)
+              String groupName;
+              if (groupStandingsList.isNotEmpty && groupStandingsList.first.team != null) {
+                final firstTeam = groupStandingsList.first.team!;
+                final groupNumber = firstTeam.groupNumber;
+                if (groupNumber != null && groupNumber > 0 && groupNumber < 27) {
+                  groupName = 'Group ${String.fromCharCode(64 + groupNumber)}';
+                } else {
+                  // Fallback: try to infer from group_id or use index
+                  groupName = 'Group ${String.fromCharCode(65 + index)}'; // A=65, B=66, etc.
+                }
+              } else {
+                // Use index to generate letter (A=0, B=1, etc.)
+                groupName = 'Group ${String.fromCharCode(65 + index)}';
+              }
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        groupName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    StandingsTable(
+                      standings: groupStandingsList,
+                      qualifiersPerGroup: qualifiersPerGroup,
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+            },
+            loading: () => const LoadingWidget(),
+            error: (e, _) => AppErrorWidget(
+              message: e.toString(),
+              onRetry: () => ref.invalidate(standingsByTournamentProvider(tournamentId)),
+            ),
+          );
+        },
+        loading: () => const LoadingWidget(),
+        error: (e, _) => AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Knockouts tab for group_knockout tournaments - shows the knockout bracket
+class _KnockoutsTab extends ConsumerStatefulWidget {
+  final String tournamentId;
+  const _KnockoutsTab({required this.tournamentId});
+
+  @override
+  ConsumerState<_KnockoutsTab> createState() => _KnockoutsTabState();
+}
+
+class _KnockoutsTabState extends ConsumerState<_KnockoutsTab> {
+  bool _attemptedAutoGenerate = false;
+  bool _isGenerating = false;
+
+  Future<void> _generateKnockouts() async {
+    if (_isGenerating) return;
+    setState(() => _isGenerating = true);
+
+    try {
+      final result = await ref
+          .read(generateGroupKnockoutKnockoutsProvider(widget.tournamentId).future);
+
+      if (!mounted) return;
+
+      if (!result.success) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Could not generate knockouts'),
+            content: Text(result.error ?? 'Unknown error'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Refresh bracket/matches
+        ref.invalidate(matchesByTournamentProvider(widget.tournamentId));
+        ref.invalidate(bracketByTournamentProvider(widget.tournamentId));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bracketAsync = ref.watch(bracketByTournamentProvider(widget.tournamentId));
+    final matchesAsync = ref.watch(matchesByTournamentProvider(widget.tournamentId));
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(matchesByTournamentProvider(widget.tournamentId));
+        ref.invalidate(bracketByTournamentProvider(widget.tournamentId));
+      },
+      child: bracketAsync.when(
+        data: (rounds) {
+          if (rounds.isEmpty) {
+            final matches = matchesAsync.asData?.value;
+            final groupMatches = matches?.where((m) => m.roundNumber == null).toList() ?? const <Match>[];
+            final groupFinished =
+                groupMatches.isNotEmpty && groupMatches.every((m) => m.status == MatchStatus.finished);
+
+            // If group stage is finished and no knockouts exist yet, try to generate once automatically.
+            if (groupFinished && !_attemptedAutoGenerate) {
+              _attemptedAutoGenerate = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _generateKnockouts();
+              });
+            }
+
+            if (_isGenerating) {
+              return const LoadingWidget(message: 'Generating knockout bracket...');
+            }
+
+            return Center(
+              child: EmptyStateWidget(
+                icon: Icons.account_tree_rounded,
+                title: 'No Knockout Bracket Yet',
+                subtitle: groupFinished
+                    ? 'Group stage is finished. Generate the knockout bracket now.'
+                    : 'Knockout bracket will appear after group stage qualifiers are determined.',
+                action: groupFinished
+                    ? FilledButton.icon(
+                        onPressed: _generateKnockouts,
+                        icon: const Icon(Icons.auto_mode_rounded),
+                        label: const Text('Generate Knockouts'),
+                      )
+                    : null,
+              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Bracket(
+              rounds: rounds,
+              tournamentId: widget.tournamentId,
+            ),
+          );
+        },
+        loading: () => const LoadingWidget(),
+        error: (e, _) => AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(bracketByTournamentProvider(widget.tournamentId)),
         ),
       ),
     );
@@ -504,9 +780,13 @@ class TournamentAdminScreen extends ConsumerWidget {
         try {
           // Access all required fields to trigger any type errors early
           final _ = tournament.id;
-          final __ = tournament.name;
-          final ___ = tournament.format;
-          final ____ = tournament.status;
+          final _name = tournament.name;
+          final _format = tournament.format;
+          final _status = tournament.status;
+          // Use variables to avoid unused variable warnings
+          if (_name.isEmpty || _format.isEmpty || _status.name.isEmpty) {
+            // This will never execute, just using the variables
+          }
         } catch (e, stackTrace) {
           debugPrint('ERROR: Tournament object has invalid fields');
           debugPrint('Error: $e');
@@ -590,7 +870,10 @@ class TournamentAdminScreen extends ConsumerWidget {
                 ),
                 tournament.format == 'league'
                   ? _StandingsTab(tournamentId: tournamentId)
-                  : _BracketStandingsTab(tournamentId: tournamentId),
+                  : _BracketStandingsTab(
+                      tournamentId: tournamentId,
+                      tournament: tournament,
+                    ),
               ],
             ),
           ),
@@ -683,43 +966,35 @@ class _GenerateFixturesDialogState extends State<_GenerateFixturesDialog> {
                         .read(generateFixturesProvider(request).future)
                         .timeout(const Duration(seconds: 120)); // 2 minutes
                     
-                    if (mounted) {
-                      // Clear loading state BEFORE popping dialog
+                    if (!mounted) return;
+                    
+                    // Clear loading state BEFORE popping dialog
+                    setState(() {
+                      _isLoading = false;
+                    });
+                    
+                    if (result.success) {
+                      Navigator.pop(context);
+                    } else {
                       setState(() {
-                        _isLoading = false;
+                        _error = result.error ?? 'Failed to generate fixtures.';
                       });
-                      
-                      if (result.success) {
-                        Navigator.pop(context);
-                      } else {
-                        setState(() {
-                          _error = result.error ?? 'Failed to generate fixtures.';
-                        });
-                      }
                     }
                   } on TimeoutException {
-                    if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                        _error = 'Fixture generation timed out after 2 minutes. This can happen with large tournaments or if the database is under heavy load. Please try again, or check your database logs for errors.';
-                      });
-                    }
+                    if (!mounted) return;
+                    setState(() {
+                      _isLoading = false;
+                      _error = 'Fixture generation timed out after 2 minutes. This can happen with large tournaments or if the database is under heavy load. Please try again, or check your database logs for errors.';
+                    });
                   } catch (e) {
-                    if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                        _error = e.toString();
-                      });
-                    }
+                    if (!mounted) return;
+                    setState(() {
+                      _isLoading = false;
+                      _error = e.toString();
+                    });
                   }
                 },
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Generate'),
+          child: const Text('Generate'),
         ),
       ],
     );

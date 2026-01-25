@@ -88,6 +88,7 @@ Tournament _$TournamentFromJson(Map<String, dynamic> json) {
     createdAt: safeDateTime(json['created_at']),
     updatedAt: safeDateTime(json['updated_at']),
     hiddenByAdmin: json['hidden_by_admin'] as bool? ?? false,
+    venue: json['venue']?.toString(),
   );
 }
 
@@ -110,4 +111,5 @@ Map<String, dynamic> _$TournamentToJson(Tournament instance) =>
       'created_at': instance.createdAt?.toIso8601String(),
       'updated_at': instance.updatedAt?.toIso8601String(),
       'hidden_by_admin': instance.hiddenByAdmin,
+      'venue': instance.venue,
     };

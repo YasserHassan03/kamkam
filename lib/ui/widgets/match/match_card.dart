@@ -9,14 +9,12 @@ class MatchCard extends StatelessWidget {
   final Match match;
   final VoidCallback? onTap;
   final bool showDate;
-  final bool showVenue;
 
   const MatchCard({
     super.key,
     required this.match,
     this.onTap,
     this.showDate = true,
-    this.showVenue = false,
   });
 
   @override
@@ -76,27 +74,6 @@ class MatchCard extends StatelessWidget {
                 // Teams and score row
                 _buildTeamsRow(context),
                 
-                // Venue
-                if (showVenue && match.venue != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.location_on_rounded,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        match.venue!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),

@@ -180,6 +180,18 @@ final deleteAllFixturesProvider =
   _invalidateMatchProviders(ref, tournamentId);
 });
 
+/// Generate knockout stage for group_knockout tournaments (after group stage completion)
+final generateGroupKnockoutKnockoutsProvider =
+    FutureProvider.family<KnockoutStageGenerationResult, String>((ref, tournamentId) async {
+  final repo = ref.watch(matchRepositoryProvider);
+  final result = await repo.generateGroupKnockoutKnockouts(tournamentId: tournamentId);
+  if (result.success) {
+    _invalidateMatchProviders(ref, tournamentId);
+    ref.invalidate(bracketByTournamentProvider(tournamentId));
+  }
+  return result;
+});
+
 /// Bracket provider - groups matches by round (useful for knockout brackets)
 final bracketByTournamentProvider =
     FutureProvider.family<Map<int, List<Match>>, String>((ref, tournamentId) async {
@@ -198,9 +210,18 @@ final bracketByTournamentProvider =
     // Sort matches per round by seed or kickoff
     for (final key in grouped.keys) {
       grouped[key]!.sort((a, b) {
-        final aIdx = (a.homeSeed ?? 0) - (a.awaySeed ?? 0);
-        final bIdx = (b.homeSeed ?? 0) - (b.awaySeed ?? 0);
-        return aIdx.compareTo(bIdx);
+        // Prefer pairing siblings by nextMatchId to keep bracket visually coherent.
+        final aParent = a.nextMatchId ?? '';
+        final bParent = b.nextMatchId ?? '';
+        final parentCmp = aParent.compareTo(bParent);
+        if (parentCmp != 0) return parentCmp;
+
+        final aKick = a.kickoffTime?.millisecondsSinceEpoch ?? 0;
+        final bKick = b.kickoffTime?.millisecondsSinceEpoch ?? 0;
+        final kickCmp = aKick.compareTo(bKick);
+        if (kickCmp != 0) return kickCmp;
+
+        return a.id.compareTo(b.id);
       });
     }
 

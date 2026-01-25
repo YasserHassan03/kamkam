@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
-import '../../core/constants/enums.dart';
 
 part 'player.g.dart';
 
@@ -14,14 +13,11 @@ class Player extends Equatable {
   
   final String name;
   
-  @JsonKey(name: 'jersey_number')
-  final int? jerseyNumber;
-  
-  @JsonKey(fromJson: _positionFromJson, toJson: _positionToJson)
-  final PlayerPosition? position;
-  
-  @JsonKey(name: 'is_captain')
-  final bool isCaptain;
+  @JsonKey(name: 'player_number')
+  final int? playerNumber;
+
+  /// Optional manual goals field (nullable).
+  final int? goals;
   
   @JsonKey(name: 'created_at')
   final DateTime? createdAt;
@@ -33,9 +29,8 @@ class Player extends Equatable {
     required this.id,
     required this.teamId,
     required this.name,
-    this.jerseyNumber,
-    this.position,
-    this.isCaptain = false,
+    this.playerNumber,
+    this.goals,
     this.createdAt,
     this.updatedAt,
   });
@@ -47,17 +42,16 @@ class Player extends Equatable {
   Map<String, dynamic> toInsertJson() => {
     'team_id': teamId,
     'name': name,
-    // Note: jersey_number, position, and is_captain are not in the database schema
-    // The players table only has: id, team_id, name, contact_info, created_at, updated_at
+    'player_number': playerNumber,
+    'goals': goals,
   };
 
   Player copyWith({
     String? id,
     String? teamId,
     String? name,
-    int? jerseyNumber,
-    PlayerPosition? position,
-    bool? isCaptain,
+    int? playerNumber,
+    int? goals,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -65,9 +59,8 @@ class Player extends Equatable {
       id: id ?? this.id,
       teamId: teamId ?? this.teamId,
       name: name ?? this.name,
-      jerseyNumber: jerseyNumber ?? this.jerseyNumber,
-      position: position ?? this.position,
-      isCaptain: isCaptain ?? this.isCaptain,
+      playerNumber: playerNumber ?? this.playerNumber,
+      goals: goals ?? this.goals,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -75,10 +68,6 @@ class Player extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, teamId, name, jerseyNumber, position, isCaptain, createdAt, updatedAt
+    id, teamId, name, playerNumber, goals, createdAt, updatedAt
   ];
 }
-
-PlayerPosition? _positionFromJson(String? value) => 
-    PlayerPosition.fromString(value);
-String? _positionToJson(PlayerPosition? position) => position?.name;

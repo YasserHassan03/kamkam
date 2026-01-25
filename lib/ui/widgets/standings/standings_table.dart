@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/standing.dart';
-import '../../../core/constants/enums.dart';
 
 /// League standings table widget with sticky header
 /// Optimized for mobile screens with clear points and GD display
@@ -9,12 +8,14 @@ class StandingsTable extends StatelessWidget {
   final List<Standing> standings;
   final bool showFullStats;
   final Function(Standing)? onTeamTap;
+  final int? qualifiersPerGroup; // For group stages: number of teams that qualify
 
   const StandingsTable({
     super.key,
     required this.standings,
     this.showFullStats = true,
     this.onTeamTap,
+    this.qualifiersPerGroup,
   });
 
   @override
@@ -31,6 +32,7 @@ class StandingsTable extends StatelessWidget {
         standings: standings,
         showFullStats: showFullStats,
         onTeamTap: onTeamTap,
+        qualifiersPerGroup: qualifiersPerGroup,
       ),
     );
   }
@@ -72,18 +74,28 @@ class CompactStandingsTable extends StatelessWidget {
 
 class _PositionCell extends StatelessWidget {
   final int position;
+  final int? qualifiersPerGroup; // For group stages: highlight qualifying positions
 
-  const _PositionCell({required this.position});
+  const _PositionCell({
+    required this.position,
+    this.qualifiersPerGroup,
+  });
 
   @override
   Widget build(BuildContext context) {
     Color? bgColor;
     
+    // Determine how many positions to highlight
+    final highlightCount = qualifiersPerGroup ?? 3; // Default to top 3 if not specified
+    
     // Top positions get highlighted
-    if (position == 1) {
-      bgColor = AppTheme.primaryColor;
-    } else if (position <= 3) {
-      bgColor = AppTheme.primaryColor.withOpacity(0.5);
+    // Position 1 gets full color, positions 2 through highlightCount get semi-transparent
+    if (position <= highlightCount && highlightCount > 0) {
+      if (position == 1) {
+        bgColor = AppTheme.primaryColor;
+      } else {
+        bgColor = AppTheme.primaryColor.withOpacity(0.5);
+      }
     }
 
     // Always use a container with fixed width for consistent alignment
@@ -190,11 +202,13 @@ class _CustomStandingsTable extends StatelessWidget {
   final List<Standing> standings;
   final bool showFullStats;
   final Function(Standing)? onTeamTap;
+  final int? qualifiersPerGroup;
 
   const _CustomStandingsTable({
     required this.standings,
     required this.showFullStats,
     this.onTeamTap,
+    this.qualifiersPerGroup,
   });
 
   @override
@@ -254,7 +268,7 @@ class _CustomStandingsTable extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  SizedBox(width: 28, child: _PositionCell(position: position)),
+                  SizedBox(width: 28, child: _PositionCell(position: position, qualifiersPerGroup: qualifiersPerGroup)),
                   const SizedBox(width: 8),
                   Expanded(
                     flex: 3,

@@ -148,6 +148,9 @@ class Tournament extends Equatable {
   @JsonKey(name: 'hidden_by_admin', defaultValue: false)
   final bool hiddenByAdmin;
 
+  /// Tournament venue (e.g., stadium name or location)
+  final String? venue;
+
   const Tournament({
     required this.id,
     required this.orgId,
@@ -166,6 +169,7 @@ class Tournament extends Equatable {
     this.createdAt,
     this.updatedAt,
     this.hiddenByAdmin = false,
+    this.venue,
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) =>
@@ -187,6 +191,7 @@ class Tournament extends Equatable {
     'group_count': groupCount,
     'qualifiers_per_group': qualifiersPerGroup,
     'rules_json': rules.toJson(),
+    'venue': venue,
   };
 
   Tournament copyWith({
@@ -207,6 +212,7 @@ class Tournament extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? hiddenByAdmin,
+    String? venue,
   }) {
     return Tournament(
       id: id ?? this.id,
@@ -226,13 +232,14 @@ class Tournament extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       hiddenByAdmin: hiddenByAdmin ?? this.hiddenByAdmin,
+      venue: venue ?? this.venue,
     );
   }
 
   @override
   List<Object?> get props => [
     id, orgId, ownerId, ownerEmail, name, seasonYear, startDate, endDate,
-    status, visibility, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt, hiddenByAdmin
+    status, visibility, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt, hiddenByAdmin, venue
   ];
 }
 

@@ -2,11 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/enums.dart';
 import '../../../data/models/player.dart';
 import '../../../providers/player_providers.dart';
 import '../../../providers/team_providers.dart';
-import '../../../providers/repository_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Screen for managing players in a team
@@ -100,7 +98,7 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
                     leading: CircleAvatar(
                       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                       child: Text(
-                        player.jerseyNumber?.toString() ?? '?',
+                        player.playerNumber?.toString() ?? '?',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -108,25 +106,10 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
                       ),
                     ),
                     title: Text(player.name),
-                    subtitle: Text(player.position?.displayName ?? 'No position'),
+                    subtitle: Text('Goals: ${player.goals?.toString() ?? '-'}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (player.isCaptain)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'C',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amber,
-                              ),
-                            ),
-                          ),
                         IconButton(
                           icon: const Icon(Icons.edit, size: 20),
                           onPressed: () => _showEditPlayerDialog(context, ref, player),
@@ -163,14 +146,13 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
       context: context,
       ref: ref,
       title: 'Add Player',
-      onSave: (name, position, jerseyNumber, isCaptain) async {
+      onSave: (name, playerNumber, goals) async {
         final player = Player(
           id: '',
           teamId: widget.teamId,
           name: name,
-          position: position,
-          jerseyNumber: jerseyNumber,
-          isCaptain: isCaptain,
+          playerNumber: playerNumber,
+          goals: goals,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -186,15 +168,13 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
       ref: ref,
       title: 'Edit Player',
       initialName: player.name,
-      initialPosition: player.position,
-      initialJerseyNumber: player.jerseyNumber,
-      initialIsCaptain: player.isCaptain,
-      onSave: (name, position, jerseyNumber, isCaptain) async {
+      initialPlayerNumber: player.playerNumber,
+      initialGoals: player.goals,
+      onSave: (name, playerNumber, goals) async {
         final updated = player.copyWith(
           name: name,
-          position: position,
-          jerseyNumber: jerseyNumber,
-          isCaptain: isCaptain,
+          playerNumber: playerNumber,
+          goals: goals,
         );
         await ref.read(updatePlayerProvider(UpdatePlayerRequest(updated)).future);
         ref.invalidate(playersByTeamProvider(widget.teamId));
@@ -207,17 +187,17 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
     required WidgetRef ref,
     required String title,
     String initialName = '',
-    PlayerPosition? initialPosition,
-    int? initialJerseyNumber,
-    bool initialIsCaptain = false,
-    required Future<void> Function(String name, PlayerPosition? position, int? jerseyNumber, bool isCaptain) onSave,
+    int? initialPlayerNumber,
+    int? initialGoals,
+    required Future<void> Function(String name, int? playerNumber, int? goals) onSave,
   }) {
     final nameController = TextEditingController(text: initialName);
-    PlayerPosition? selectedPosition = initialPosition;
-    final jerseyController = TextEditingController(
-      text: initialJerseyNumber?.toString() ?? '',
+    final numberController = TextEditingController(
+      text: initialPlayerNumber?.toString() ?? '',
     );
-    var isCaptain = initialIsCaptain;
+    final goalsController = TextEditingController(
+      text: initialGoals?.toString() ?? '',
+    );
 
     showDialog(
       context: context,
@@ -236,34 +216,22 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<PlayerPosition>(
-                  value: selectedPosition,
-                  decoration: const InputDecoration(
-                    labelText: 'Position',
-                    prefixIcon: Icon(Icons.sports_soccer),
-                  ),
-                  items: PlayerPosition.values.map((position) {
-                    return DropdownMenuItem(
-                      value: position,
-                      child: Text(position.displayName),
-                    );
-                  }).toList(),
-                  onChanged: (value) => setState(() => selectedPosition = value),
-                ),
-                const SizedBox(height: 16),
                 TextField(
-                  controller: jerseyController,
+                  controller: numberController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Jersey Number',
+                    labelText: 'Player Number',
                     prefixIcon: Icon(Icons.numbers),
                   ),
                 ),
                 const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Team Captain'),
-                  value: isCaptain,
-                  onChanged: (value) => setState(() => isCaptain = value),
+                TextField(
+                  controller: goalsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Goals',
+                    prefixIcon: Icon(Icons.sports_soccer),
+                  ),
                 ),
               ],
             ),
@@ -283,9 +251,8 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
                 try {
                   await onSave(
                     nameController.text.trim(),
-                    selectedPosition,
-                    int.tryParse(jerseyController.text),
-                    isCaptain,
+                    int.tryParse(numberController.text),
+                    int.tryParse(goalsController.text),
                   );
                 } catch (e) {
                   // Error handled silently

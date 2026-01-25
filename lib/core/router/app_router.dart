@@ -10,6 +10,7 @@ import '../../ui/screens/public/tournament_detail_screen.dart';
 import '../../ui/screens/public/standings_screen.dart';
 import '../../ui/screens/public/fixtures_screen.dart';
 import '../../ui/screens/public/results_screen.dart';
+import '../../ui/screens/public/golden_boot_screen.dart';
 import '../../ui/screens/auth/login_screen.dart';
 import '../../ui/screens/auth/register_screen.dart';
 import '../../ui/screens/auth/pending_approval_screen.dart';
@@ -79,7 +80,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 1. Not authenticated -> can access public and auth routes only
       if (!isAuthenticated) {
         if (isAdminRoute || isPendingRoute) {
-          return '/login?redirect=$currentPath';
+          // Redirect to home (not login) - cleaner UX for sign-out
+          return '/';
         }
         // CRITICAL: If already on login/register, ALWAYS stay there (don't redirect away)
         // This prevents redirects when login fails
@@ -158,7 +160,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const HomeScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
       ),
       GoRoute(
         path: '/pending-approval',
@@ -173,6 +181,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           return TournamentDetailScreen(tournamentId: id);
         },
         routes: [
+          GoRoute(
+            path: 'golden-boot',
+            name: 'goldenBoot',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return GoldenBootScreen(tournamentId: id);
+            },
+          ),
           GoRoute(
             path: 'standings',
             name: 'standings',
@@ -219,7 +235,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin',
         name: 'dashboard',
-        builder: (context, state) => const DashboardScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const DashboardScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
       ),
       
       // User management (admin only)
@@ -339,11 +361,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            Icon(
+              Icons.explore_off_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
             Text(
               'Page not found',
@@ -351,11 +378,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
             const SizedBox(height: 8),
             Text(
-              state.error?.toString() ?? 'The requested page does not exist',
-              style: Theme.of(context).textTheme.bodyMedium,
+              'The requested page does not exist',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: () => context.go('/'),
               child: const Text('Go Home'),
             ),

@@ -54,6 +54,30 @@ class MatchResultUpdateResult {
   }
 }
 
+/// Result of knockout stage generation (group_knockout -> knockout stage)
+class KnockoutStageGenerationResult {
+  final bool success;
+  final int matchesCreated;
+  final int rounds;
+  final String? error;
+
+  const KnockoutStageGenerationResult({
+    required this.success,
+    this.matchesCreated = 0,
+    this.rounds = 0,
+    this.error,
+  });
+
+  factory KnockoutStageGenerationResult.fromJson(Map<String, dynamic> json) {
+    return KnockoutStageGenerationResult(
+      success: json['success'] as bool? ?? false,
+      matchesCreated: json['matches_created'] as int? ?? 0,
+      rounds: json['rounds'] as int? ?? 0,
+      error: json['error'] as String?,
+    );
+  }
+}
+
 /// Repository interface for Match data operations
 abstract class MatchRepository {
   /// Get all matches for a tournament
@@ -105,6 +129,11 @@ abstract class MatchRepository {
     required String tournamentId,
     DateTime? startDate,
     int daysBetweenMatchdays = 7,
+  });
+
+  /// Generate knockout stage for a group_knockout tournament (after group stage completion)
+  Future<KnockoutStageGenerationResult> generateGroupKnockoutKnockouts({
+    required String tournamentId,
   });
 
   /// Delete all fixtures for a tournament

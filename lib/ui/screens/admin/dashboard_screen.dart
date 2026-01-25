@@ -23,9 +23,8 @@ class DashboardScreen extends ConsumerWidget {
     return authState.when(
       data: (user) {
         if (user == null) {
-          return const Center(
-            child: Text('User not logged in'),
-          );
+          // User signed out - show empty scaffold while router redirects
+          return const Scaffold(body: SizedBox.shrink());
         }
 
         // Fetch tournaments created by the logged-in user's organizations
@@ -46,11 +45,9 @@ class DashboardScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'Sign Out',
-                onPressed: () async {
-                  await ref.read(authNotifierProvider.notifier).signOut();
-                  if (context.mounted) {
-                    context.go('/');
-                  }
+                onPressed: () {
+                  // Just sign out - router will handle redirect to '/'
+                  ref.read(authNotifierProvider.notifier).signOut();
                 },
               ),
             ],

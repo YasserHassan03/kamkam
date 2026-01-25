@@ -15,7 +15,6 @@ Match _$MatchFromJson(Map<String, dynamic> json) => Match(
   kickoffTime: json['kickoff_time'] == null
       ? null
       : DateTime.parse(json['kickoff_time'] as String),
-  venue: json['venue'] as String?,
   status: json['status'] == null
       ? MatchStatus.scheduled
       : _statusFromJson(json['status'] as String),
@@ -51,7 +50,6 @@ Map<String, dynamic> _$MatchToJson(Match instance) => <String, dynamic>{
   'away_team_id': instance.awayTeamId,
   'matchday': instance.matchday,
   'kickoff_time': instance.kickoffTime?.toIso8601String(),
-  'venue': instance.venue,
   'status': _statusToJson(instance.status),
   'home_goals': instance.homeGoals,
   'away_goals': instance.awayGoals,
@@ -66,6 +64,6 @@ Map<String, dynamic> _$MatchToJson(Match instance) => <String, dynamic>{
   'away_seed': instance.awaySeed,
   'home_qualifier': instance.homeQualifier,
   'away_qualifier': instance.awayQualifier,
-  'home_team': ?instance.homeTeam?.toJson(),
-  'away_team': ?instance.awayTeam?.toJson(),
+  'home_team': instance.homeTeam?.toJson(),
+  'away_team': instance.awayTeam?.toJson(),
 };

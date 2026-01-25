@@ -166,18 +166,6 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                   ),
                                 ),
                               ),
-                            if (match.venue != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.location_on, size: 14),
-                                    const SizedBox(width: 4),
-                                    Text(match.venue!),
-                                  ],
-                                ),
-                              ),
                             // Date and Time Selection
                             Column(
                               children: [
@@ -342,6 +330,23 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                     ),
                     const SizedBox(height: 32),
 
+                    // Submit Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _isLoading ? null : _handleSubmit,
+                        icon: _isLoading 
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check),
+                        label: Text(_isLoading ? 'Saving...' : 'Save Result'),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
                     // Result Preview
                     Card(
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -394,23 +399,6 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Submit Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _isLoading ? null : _handleSubmit,
-                        icon: _isLoading 
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check),
-                        label: Text(_isLoading ? 'Saving...' : 'Save Result'),
                       ),
                     ),
                   ],

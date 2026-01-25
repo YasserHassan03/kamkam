@@ -5,11 +5,11 @@ import '../../../providers/tournament_providers.dart';
 import '../../../providers/standing_providers.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../providers/player_providers.dart';
 import '../../../core/constants/enums.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 import '../../widgets/standings/standings_table.dart';
 import '../../widgets/match/match_card.dart';
-import '../../widgets/bracket/bracket.dart';
 
 /// Tournament detail screen showing overview with standings, fixtures, and results
 class TournamentDetailScreen extends ConsumerWidget {
@@ -53,6 +53,7 @@ class TournamentDetailScreen extends ConsumerWidget {
               ref.invalidate(standingsByTournamentProvider(tournamentId));
               ref.invalidate(upcomingMatchesProvider(tournamentId));
               ref.invalidate(recentResultsProvider(tournamentId));
+              ref.invalidate(goldenBootProvider(tournamentId));
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -71,48 +72,13 @@ class TournamentDetailScreen extends ConsumerWidget {
 
                   const Divider(height: 32),
 
-                  // Table or Bracket section depending on format
+                  // Table section only for league format
                   if (tournament.format == 'league') ...[
                     _SectionHeader(
                       title: 'League Table',
                       onViewAll: () => context.go('/tournament/$tournamentId/standings'),
                     ),
                     _StandingsSection(tournamentId: tournamentId),
-
-                    const Divider(height: 32),
-                  ] else ...[
-                    _SectionHeader(
-                      title: 'Bracket',
-                      onViewAll: () => context.go('/tournament/$tournamentId/fixtures'),
-                    ),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final bracketAsync = ref.watch(bracketByTournamentProvider(tournamentId));
-                        return bracketAsync.when(
-                          data: (rounds) {
-                            if (rounds.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('No bracket available'),
-                              );
-                            }
-
-                            return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Bracket(rounds: rounds),
-                            );
-                          },
-                          loading: () => const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                          error: (e, _) => Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text('Error loading bracket: $e'),
-                          ),
-                        );
-                      },
-                    ),
 
                     const Divider(height: 32),
                   ],
@@ -206,41 +172,123 @@ class _TournamentHeader extends StatelessWidget {
   }
 }
 
-class _QuickNav extends StatelessWidget {
+class _QuickNav extends ConsumerWidget {
   final String tournamentId;
 
   const _QuickNav({required this.tournamentId});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: _NavButton(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tournamentAsync = ref.watch(tournamentByIdProvider(tournamentId));
+    
+    return tournamentAsync.when(
+      data: (tournament) {
+        // For knockout and group_knockout tournaments, show "Draw" instead of "Table"
+        final tableLabel = (tournament?.format == 'knockout' || tournament?.format == 'group_knockout') 
+            ? 'Draw' 
+            : 'Table';
+        
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.4,
+            children: [
+              _NavButton(
+                icon: (tournament?.format == 'knockout' || tournament?.format == 'group_knockout') 
+                    ? Icons.account_tree_rounded 
+                    : Icons.leaderboard,
+                label: tableLabel,
+                onTap: () => context.go('/tournament/$tournamentId/standings'),
+              ),
+              _NavButton(
+                icon: Icons.calendar_month,
+                label: 'Fixtures',
+                onTap: () => context.go('/tournament/$tournamentId/fixtures'),
+              ),
+              _NavButton(
+                icon: Icons.scoreboard,
+                label: 'Results',
+                onTap: () => context.go('/tournament/$tournamentId/results'),
+              ),
+              _NavButton(
+                icon: Icons.emoji_events_rounded,
+                label: 'Golden Boot',
+                onTap: () => context.go('/tournament/$tournamentId/golden-boot'),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: GridView.count(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 2.4,
+          children: [
+            _NavButton(
               icon: Icons.leaderboard,
               label: 'Table',
               onTap: () => context.go('/tournament/$tournamentId/standings'),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _NavButton(
+            _NavButton(
               icon: Icons.calendar_month,
               label: 'Fixtures',
               onTap: () => context.go('/tournament/$tournamentId/fixtures'),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _NavButton(
+            _NavButton(
               icon: Icons.scoreboard,
               label: 'Results',
               onTap: () => context.go('/tournament/$tournamentId/results'),
             ),
-          ),
-        ],
+            _NavButton(
+              icon: Icons.emoji_events_rounded,
+              label: 'Golden Boot',
+              onTap: () => context.go('/tournament/$tournamentId/golden-boot'),
+            ),
+          ],
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: GridView.count(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 2.4,
+          children: [
+            _NavButton(
+              icon: Icons.leaderboard,
+              label: 'Table',
+              onTap: () => context.go('/tournament/$tournamentId/standings'),
+            ),
+            _NavButton(
+              icon: Icons.calendar_month,
+              label: 'Fixtures',
+              onTap: () => context.go('/tournament/$tournamentId/fixtures'),
+            ),
+            _NavButton(
+              icon: Icons.scoreboard,
+              label: 'Results',
+              onTap: () => context.go('/tournament/$tournamentId/results'),
+            ),
+            _NavButton(
+              icon: Icons.emoji_events_rounded,
+              label: 'Golden Boot',
+              onTap: () => context.go('/tournament/$tournamentId/golden-boot'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -266,15 +314,24 @@ class _NavButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+              Icon(
+                icon,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

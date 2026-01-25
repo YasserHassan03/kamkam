@@ -79,6 +79,7 @@ CREATE TABLE tournaments (
     "rounds": 1,
     "tiebreak_order": ["points","goal_difference","goals_for","head_to_head"]
   }'::jsonb,
+  venue TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -111,9 +112,8 @@ CREATE TABLE players (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
-  jersey_number INTEGER,
-  position VARCHAR(50), -- goalkeeper, defender, midfielder, forward
-  is_captain BOOLEAN DEFAULT FALSE,
+  player_number INTEGER,
+  goals INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -129,7 +129,6 @@ CREATE TABLE matches (
   away_team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   matchday INTEGER, -- Round number for league format
   kickoff_time TIMESTAMPTZ,
-  venue VARCHAR(255),
   status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
     CHECK (status IN ('scheduled','in_progress','finished','postponed','cancelled')),
   home_goals INTEGER,
