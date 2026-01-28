@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/enums.dart';
 import '../../../data/models/match.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/team_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../providers/tournament_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Screen for entering match results with standings update
@@ -96,11 +98,51 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => context.go('/admin/tournaments/${widget.tournamentId}'),
         ),
+        actions: [
+          matchAsync.maybeWhen(
+            data: (match) => match != null && match.status != MatchStatus.finished
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: TextButton.icon(
+                      onPressed: () => context.push('/admin/live-match/${match.id}'),
+                      icon: const Icon(Icons.live_tv_rounded),
+                      label: const Text('LIVE MODE'),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
       ),
       body: matchAsync.when(
         data: (Match? match) {
           if (match == null) {
             return const Center(child: Text('Match not found'));
+          }
+
+          // PERMISSION CHECK
+          final canEdit = ref.watch(canEditTournamentProvider(widget.tournamentId));
+          if (!canEdit) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'Permission denied: You do not have permission to modify this tournament.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, color: Colors.red),
+                ),
+              ),
+            );
+          }
+
+          // REDIRECT TO LIVE MODE IF MATCH IS IN PROGRESS
+          if (match.isLive) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                context.pushReplacement('/admin/live-match/${match.id}');
+              }
+            });
+            return const Center(child: LoadingWidget());
           }
 
           // Initialize scores from match if set (only once)
@@ -147,6 +189,65 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
               return SingleChildScrollView(
                 child: Column(
                   children: [
+                    if (match.status != MatchStatus.finished)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.live_tv_rounded,
+                                    color: Theme.of(context).colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Live Match Control',
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Track scores, events and time in real-time',
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: () => context.push('/admin/live-match/${match.id}'),
+                                icon: const Icon(Icons.play_arrow_rounded),
+                                label: const Text('START LIVE MODE'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     // Match header with date/time
                     Container(
                       width: double.infinity,

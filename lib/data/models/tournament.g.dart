@@ -10,7 +10,7 @@ TournamentRules _$TournamentRulesFromJson(Map<String, dynamic> json) =>
     TournamentRules(
       type: json['type'] == null
           ? TournamentType.league
-          : _typeFromJson(json['type']?.toString()),
+          : _typeFromJson(json['type'] as String?),
       pointsForWin:
           (json['points_for_win'] as num?)?.toInt() ??
           AppConstants.defaultPointsForWin,
@@ -45,52 +45,41 @@ Map<String, dynamic> _$TournamentRulesToJson(TournamentRules instance) =>
       'extra_time_allowed': instance.extraTimeAllowed,
     };
 
-Tournament _$TournamentFromJson(Map<String, dynamic> json) {
-  // Safely extract and convert all fields with comprehensive null handling
-  String safeString(dynamic value, String defaultValue) {
-    if (value == null) return defaultValue;
-    return value.toString();
-  }
-  
-  DateTime? safeDateTime(dynamic value) {
-    if (value == null) return null;
-    try {
-      if (value is DateTime) return value;
-      final str = value.toString();
-      if (str.isEmpty) return null;
-      return DateTime.parse(str);
-    } catch (e) {
-      return null;
-    }
-  }
-  
-  return Tournament(
-    id: safeString(json['id'], ''),
-    orgId: safeString(json['org_id'], ''),
-    ownerId: safeString(json['owner_id'], ''),
-    ownerEmail: json['owner_email']?.toString(),
-    name: safeString(json['name'], ''),
-    seasonYear: (json['season_year'] as num?)?.toInt() ?? DateTime.now().year,
-    startDate: safeDateTime(json['start_date']),
-    endDate: safeDateTime(json['end_date']),
-    status: json['status'] == null
-        ? TournamentStatus.draft
-        : _statusFromJson(safeString(json['status'], 'draft')),
-    visibility: json['visibility'] == null
-        ? Visibility.public
-        : _visibilityFromJson(safeString(json['visibility'], 'public')),
-    format: safeString(json['format'], 'league'),
-    groupCount: (json['group_count'] as num?)?.toInt(),
-    qualifiersPerGroup: (json['qualifiers_per_group'] as num?)?.toInt(),
-    rules: json['rules_json'] == null
-        ? const TournamentRules()
-        : _rulesFromJson(json['rules_json']),
-    createdAt: safeDateTime(json['created_at']),
-    updatedAt: safeDateTime(json['updated_at']),
-    hiddenByAdmin: json['hidden_by_admin'] as bool? ?? false,
-    venue: json['venue']?.toString(),
-  );
-}
+Tournament _$TournamentFromJson(Map<String, dynamic> json) => Tournament(
+  id: json['id'] as String,
+  orgId: json['org_id'] as String,
+  ownerId: json['owner_id'] as String,
+  ownerEmail: json['owner_email'] as String?,
+  name: json['name'] as String,
+  seasonYear: (json['season_year'] as num).toInt(),
+  startDate: json['start_date'] == null
+      ? null
+      : DateTime.parse(json['start_date'] as String),
+  endDate: json['end_date'] == null
+      ? null
+      : DateTime.parse(json['end_date'] as String),
+  status: json['status'] == null
+      ? TournamentStatus.draft
+      : _statusFromJson(json['status'] as String?),
+  visibility: json['visibility'] == null
+      ? Visibility.public
+      : _visibilityFromJson(json['visibility'] as String?),
+  format: json['format'] as String? ?? 'league',
+  groupCount: (json['group_count'] as num?)?.toInt(),
+  qualifiersPerGroup: (json['qualifiers_per_group'] as num?)?.toInt(),
+  rules: json['rules_json'] == null
+      ? const TournamentRules()
+      : _rulesFromJson(json['rules_json']),
+  createdAt: json['created_at'] == null
+      ? null
+      : DateTime.parse(json['created_at'] as String),
+  updatedAt: json['updated_at'] == null
+      ? null
+      : DateTime.parse(json['updated_at'] as String),
+  hiddenByAdmin: json['hidden_by_admin'] as bool? ?? false,
+  venue: json['venue'] as String?,
+  sponsorLogoUrl: json['sponsor_logo_url'] as String?,
+);
 
 Map<String, dynamic> _$TournamentToJson(Tournament instance) =>
     <String, dynamic>{
@@ -112,4 +101,5 @@ Map<String, dynamic> _$TournamentToJson(Tournament instance) =>
       'updated_at': instance.updatedAt?.toIso8601String(),
       'hidden_by_admin': instance.hiddenByAdmin,
       'venue': instance.venue,
+      'sponsor_logo_url': instance.sponsorLogoUrl,
     };

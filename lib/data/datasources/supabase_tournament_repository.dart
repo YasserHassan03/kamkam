@@ -218,6 +218,7 @@ class SupabaseTournamentRepository implements TournamentRepository {
           'qualifiers_per_group': tournament.qualifiersPerGroup,
           'rules_json': tournament.rules.toJson(),
           'hidden_by_admin': tournament.hiddenByAdmin,
+          'sponsor_logo_url': tournament.sponsorLogoUrl,
         })
         .eq('id', tournament.id)
         .select()

@@ -102,6 +102,9 @@ class Match extends Equatable {
   bool get hasResult => 
       status == MatchStatus.finished && homeGoals != null && awayGoals != null;
 
+  /// Whether this match is currently live/in progress
+  bool get isLive => status == MatchStatus.inProgress;
+
   /// Whether this is an upcoming match
   bool get isUpcoming => 
       status == MatchStatus.scheduled && 

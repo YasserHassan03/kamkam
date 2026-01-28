@@ -64,6 +64,6 @@ Map<String, dynamic> _$MatchToJson(Match instance) => <String, dynamic>{
   'away_seed': instance.awaySeed,
   'home_qualifier': instance.homeQualifier,
   'away_qualifier': instance.awayQualifier,
-  'home_team': instance.homeTeam?.toJson(),
-  'away_team': instance.awayTeam?.toJson(),
+  'home_team': ?instance.homeTeam?.toJson(),
+  'away_team': ?instance.awayTeam?.toJson(),
 };

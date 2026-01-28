@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/enums.dart';
 import '../models/match.dart';
 import '../repositories/match_repository.dart';
 
@@ -261,4 +262,91 @@ class SupabaseMatchRepository implements MatchRepository {
 
     return (response as List).map((json) => Match.fromJson(json)).toList();
   }
+
+  /// Start a match (set status to inProgress)
+  Future<Match> startMatch(String matchId) async {
+    final response = await _client
+        .from(DbTables.matches)
+        .update({
+          'status': MatchStatus.inProgress.jsonValue,
+          'home_goals': 0,
+          'away_goals': 0,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', matchId)
+        .select('''
+          *,
+          home_team:teams!matches_home_team_id_fkey(*),
+          away_team:teams!matches_away_team_id_fkey(*)
+        ''')
+        .single();
+
+    return Match.fromJson(response);
+  }
+
+  /// End a match (set status to finished)
+  Future<Match> endMatch(String matchId) async {
+    final response = await _client
+        .from(DbTables.matches)
+        .update({'status': 'finished'})
+        .eq('id', matchId)
+        .select('''
+          *,
+          home_team:teams!matches_home_team_id_fkey(*),
+          away_team:teams!matches_away_team_id_fkey(*)
+        ''')
+        .single();
+
+    return Match.fromJson(response);
+  }
+
+  /// Update live match score
+  Future<Match> updateLiveScore({
+    required String matchId,
+    required int homeGoals,
+    required int awayGoals,
+  }) async {
+    final response = await _client
+        .from(DbTables.matches)
+        .update({
+          'home_goals': homeGoals,
+          'away_goals': awayGoals,
+        })
+        .eq('id', matchId)
+        .select('''
+          *,
+          home_team:teams!matches_home_team_id_fkey(*),
+          away_team:teams!matches_away_team_id_fkey(*)
+        ''')
+        .single();
+
+    return Match.fromJson(response);
+  }
+
+  /// Subscribe to real-time match updates
+  Stream<Match> subscribeToMatch(String matchId) {
+    return _client
+        .from(DbTables.matches)
+        .stream(primaryKey: ['id'])
+        .eq('id', matchId)
+        .map((data) => data.isNotEmpty ? Match.fromJson(data.first) : throw Exception('Match not found'));
+  }
+
+  /// Get all live matches for a tournament
+  @override
+  Future<List<Match>> getLiveMatches(String tournamentId) async {
+    final response = await _client
+        .from(DbTables.matches)
+        .select('''
+          *,
+          home_team:teams!matches_home_team_id_fkey(*),
+          away_team:teams!matches_away_team_id_fkey(*)
+        ''')
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'in_progress')
+        .order('kickoff_time');
+
+    return (response as List).map((json) => Match.fromJson(json)).toList();
+  }
 }
+

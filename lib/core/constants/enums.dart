@@ -130,8 +130,9 @@ enum MatchStatus {
   }
 
   static MatchStatus fromString(String value) {
-    switch (value.toLowerCase()) {
-      case 'in_progress':
+    final cleanValue = value.toLowerCase().replaceAll('_', '').replaceAll('-', '');
+    switch (cleanValue) {
+      case 'inprogress':
         return MatchStatus.inProgress;
       case 'finished':
         return MatchStatus.finished;

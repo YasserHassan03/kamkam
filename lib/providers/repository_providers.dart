@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/datasources/datasources.dart';
 import '../data/repositories/repositories.dart';
+import '../data/services/storage_service.dart';
 
 /// Supabase client provider
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -41,4 +42,9 @@ final matchRepositoryProvider = Provider<MatchRepository>((ref) {
 /// Standing repository provider
 final standingRepositoryProvider = Provider<StandingRepository>((ref) {
   return SupabaseStandingRepository(ref.watch(supabaseClientProvider));
+});
+
+/// Storage service provider for file uploads
+final storageServiceProvider = Provider<StorageService>((ref) {
+  return StorageService(ref.watch(supabaseClientProvider));
 });

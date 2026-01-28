@@ -13,11 +13,43 @@ import '../../../core/theme/app_theme.dart';
 import '../../widgets/common/loading_error_widgets.dart';
 
 /// Modern home screen showing public tournaments
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _selectedOrgId;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Filter tournaments by search query and organisation
+  List<Tournament> _filterTournaments(List<Tournament> tournaments) {
+    var filtered = tournaments;
+    
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((t) => 
+        t.name.toLowerCase().contains(_searchQuery.toLowerCase())
+      ).toList();
+    }
+    
+    if (_selectedOrgId != null) {
+      filtered = filtered.where((t) => t.orgId == _selectedOrgId).toList();
+    }
+    
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tournamentsAsync = ref.watch(publicTournamentsProvider);
     final organisationsAsync = ref.watch(publicOrganisationsProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
@@ -37,28 +69,128 @@ class HomeScreen extends ConsumerWidget {
                 child: _AppHeader(isAuthenticated: isAuthenticated),
               ),
               
+              // Search and Filter Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Column(
+                    children: [
+                      // Search bar
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search tournaments...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        onChanged: (value) => setState(() => _searchQuery = value),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Organisation filter dropdown
+                      organisationsAsync.when(
+                        data: (organisations) {
+                          if (organisations.isEmpty) return const SizedBox.shrink();
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String?>(
+                                value: _selectedOrgId,
+                                hint: const Text('Filter by organiser'),
+                                isExpanded: true,
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('All Organisers'),
+                                  ),
+                                  ...organisations.map((org) => DropdownMenuItem<String?>(
+                                    value: org.id,
+                                    child: Row(
+                                      children: [
+                                        if (org.logoUrl != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(right: 8),
+                                            child: CircleAvatar(
+                                              radius: 12,
+                                              backgroundImage: NetworkImage(org.logoUrl!),
+                                            ),
+                                          ),
+                                        Expanded(child: Text(org.name, overflow: TextOverflow.ellipsis)),
+                                      ],
+                                    ),
+                                  )),
+                                ],
+                                onChanged: (value) => setState(() => _selectedOrgId = value),
+                              ),
+                            ),
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
               // Content
               tournamentsAsync.when(
                 data: (tournaments) {
+                  final filtered = _filterTournaments(tournaments);
+                  
                   if (tournaments.isEmpty) {
                     return SliverFillRemaining(
                       child: _EmptyState(),
                     );
                   }
+                  
+                  if (filtered.isEmpty) {
+                    return SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off, size: 64, color: Theme.of(context).colorScheme.outline),
+                            const SizedBox(height: 16),
+                            Text('No tournaments match your search', style: Theme.of(context).textTheme.bodyLarge),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
                   return organisationsAsync.when(
                     data: (organisations) => _TournamentContent(
-                      tournaments: tournaments,
+                      tournaments: filtered,
                       organisations: organisations,
                       favorites: favorites,
                     ),
                     loading: () => _TournamentContent(
-                      tournaments: tournaments,
+                      tournaments: filtered,
                       organisations: const [],
                       favorites: favorites,
                     ),
                     error: (e, _) => _TournamentContent(
-                      tournaments: tournaments,
+                      tournaments: filtered,
                       organisations: const [],
                       favorites: favorites,
                     ),
@@ -340,169 +472,247 @@ class _TournamentCard extends ConsumerWidget {
                 width: isFavorite ? 1.5 : 1,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top row: Format badge, Status, Favorite
-                  Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Format badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          formatLabel,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Status badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      // Main content
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                        // Top row: Format badge, Status, Favorite
+                        Row(
+                          children: [
+                            // Format badge
                             Container(
-                              width: 6,
-                              height: 6,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: statusColor,
-                                shape: BoxShape.circle,
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                formatLabel,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              tournament.status.displayName,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                            const SizedBox(width: 8),
+                            // Status badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    tournament.status.displayName,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            // Favorite button
+                            _FavoriteButton(
+                              tournamentId: tournament.id,
+                              isFavorite: isFavorite,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        
+                        // Tournament name
+                        Text(
+                          tournament.name,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        
+                        // Organiser
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.business_rounded,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                organiserName,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const Spacer(),
-                      // Favorite button
-                      _FavoriteButton(
-                        tournamentId: tournament.id,
-                        isFavorite: isFavorite,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  
-                  // Tournament name
-                  Text(
-                    tournament.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  
-                  // Organiser
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.business_rounded,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          organiserName,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Bottom row: Venue and Date
-                  Row(
-                    children: [
-                      // Venue
-                      if (tournament.venue != null && tournament.venue!.isNotEmpty) ...[
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_rounded,
-                                size: 14,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 5),
+                        const SizedBox(height: 12),
+                        
+                        // Bottom row: Venue and Date
+                        Row(
+                          children: [
+                            // Venue
+                            if (tournament.venue != null && tournament.venue!.isNotEmpty) ...[
                               Expanded(
-                                child: Text(
-                                  tournament.venue!,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_rounded,
+                                      size: 14,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Expanded(
+                                      child: Text(
+                                        tournament.venue!,
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 16),
                             ],
-                          ),
+                            // Date
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 14,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  tournament.startDate != null 
+                                      ? _formatDate(tournament.startDate!) 
+                                      : 'TBD',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
                       ],
-                      // Date
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  
+                  // Organisation logo on the right
+                  Builder(
+                    builder: (context) {
+                      final org = organisations.where((o) => o.id == tournament.orgId).firstOrNull;
+                      if (org?.logoUrl != null) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              org!.logoUrl!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                            ),
                           ),
-                          const SizedBox(width: 5),
-                          Text(
-                            tournament.startDate != null 
-                                ? _formatDate(tournament.startDate!) 
-                                : 'TBD',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ],
               ),
             ),
+            
+            // Sponsored by section (only if sponsor logo exists)
+            if (tournament.sponsorLogoUrl != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(15),
+                    bottomRight: Radius.circular(15),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Sponsored by:',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.network(
+                          tournament.sponsorLogoUrl!,
+                          height: 40,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.centerLeft,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   String _getOrganiserName(Tournament tournament, List<Organisation> orgs) {
+    // 1. Try to find the actual Organisation name first
+    final org = orgs.where((o) => o.id == tournament.orgId).firstOrNull;
+    if (org != null) return org.name;
+    
+    // 2. Fallback to owner email (username part) if org not found
     if (tournament.ownerEmail != null && tournament.ownerEmail!.isNotEmpty) {
       final emailName = tournament.ownerEmail!.split('@').first;
       return emailName[0].toUpperCase() + emailName.substring(1);
     }
     
-    final org = orgs.where((o) => o.id == tournament.orgId).firstOrNull;
-    return org?.name ?? 'Unknown Organiser';
+    return 'Unknown Organiser';
   }
 
   String _getFormatLabel(String format) {

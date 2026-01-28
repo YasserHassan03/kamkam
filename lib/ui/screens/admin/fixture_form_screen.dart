@@ -52,7 +52,7 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
     if (_isInitialized) return;
     _selectedHomeTeamId = match.homeTeamId;
     _selectedAwayTeamId = match.awayTeamId;
-    _selectedStatus = match.status.name;
+                _selectedStatus = match.status.jsonValue;
     _matchdayController.text = match.matchday?.toString() ?? '';
     _homeScoreController.text = match.homeGoals?.toString() ?? '';
     _awayScoreController.text = match.awayGoals?.toString() ?? '';
@@ -120,7 +120,7 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
         final updated = existing.copyWith(
           homeTeamId: _selectedHomeTeamId!,
           awayTeamId: _selectedAwayTeamId!,
-          status: MatchStatus.values.firstWhere((e) => e.name == _selectedStatus),
+          status: MatchStatus.fromString(_selectedStatus),
           matchday: matchday,
           kickoffTime: _combineDateAndTime(),
           homeGoals: homeScore,
@@ -133,7 +133,7 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
           tournamentId: widget.tournamentId,
           homeTeamId: _selectedHomeTeamId!,
           awayTeamId: _selectedAwayTeamId!,
-          status: MatchStatus.values.firstWhere((e) => e.name == _selectedStatus),
+          status: MatchStatus.fromString(_selectedStatus),
           matchday: matchday,
           kickoffTime: _combineDateAndTime(),
           homeGoals: homeScore,
@@ -360,12 +360,12 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
                           labelText: 'Status',
                           prefixIcon: Icon(Icons.flag),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'scheduled', child: Text('Scheduled')),
-                          DropdownMenuItem(value: 'inProgress', child: Text('In Progress')),
-                          DropdownMenuItem(value: 'finished', child: Text('Finished')),
-                          DropdownMenuItem(value: 'postponed', child: Text('Postponed')),
-                          DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                        items: [
+                          DropdownMenuItem(value: MatchStatus.scheduled.jsonValue, child: const Text('Scheduled')),
+                          DropdownMenuItem(value: MatchStatus.inProgress.jsonValue, child: const Text('In Progress')),
+                          DropdownMenuItem(value: MatchStatus.finished.jsonValue, child: const Text('Finished')),
+                          DropdownMenuItem(value: MatchStatus.postponed.jsonValue, child: const Text('Postponed')),
+                          DropdownMenuItem(value: MatchStatus.cancelled.jsonValue, child: const Text('Cancelled')),
                         ],
                         onChanged: _isLoading ? null : (value) {
                           setState(() => _selectedStatus = value!);
@@ -418,7 +418,7 @@ class _FixtureFormScreenState extends ConsumerState<FixtureFormScreen> {
                 const SizedBox(height: 24),
 
                 // Score Section (only show if editing or status allows)
-                if (_selectedStatus == 'inProgress' || _selectedStatus == 'finished') ...[
+                if (_selectedStatus == MatchStatus.inProgress.jsonValue || _selectedStatus == MatchStatus.finished.jsonValue) ...[
                   Text(
                     'Score',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(

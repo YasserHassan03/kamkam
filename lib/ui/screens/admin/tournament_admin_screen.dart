@@ -150,6 +150,39 @@ class _OverviewTab extends ConsumerWidget {
             label: const Text('Generate Fixtures'),
           ),
           const SizedBox(height: 24),
+
+          // Live Matches Section
+          if (matches.any((m) => m.isLive)) ...[
+            Row(
+              children: [
+                const Icon(Icons.live_tv_rounded, color: Colors.red, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'LIVE NOW',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                        letterSpacing: 1.2,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...matches.where((m) => m.isLive).map(
+                  (m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: MatchCard(
+                      match: m,
+                      onTap: () => context.push(
+                        '/admin/live-match/${m.id}',
+                      ),
+                    ),
+                  ),
+                ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+          ],
           Text(
             'Recent Matches',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -165,12 +198,15 @@ class _OverviewTab extends ConsumerWidget {
             )
           else
             ...matches
+                .where((m) => !m.isLive)
                 .take(5)
                 .map(
                   (m) => MatchCard(
                     match: m,
                     onTap: () => context.push(
-                      '/admin/tournaments/${tournament.id}/matches/${m.id}/result',
+                      m.isLive
+                          ? '/admin/live-match/${m.id}'
+                          : '/admin/tournaments/${tournament.id}/matches/${m.id}/result',
                     ),
                   ),
                 )
@@ -775,6 +811,24 @@ class TournamentAdminScreen extends ConsumerWidget {
           return Scaffold(
             appBar: AppBar(title: const Text('Tournament')),
             body: const Center(child: Text('Tournament not found')),
+          );
+        }
+
+        // PERMISSION CHECK
+        final canEdit = ref.watch(canEditTournamentProvider(tournamentId));
+        if (!canEdit) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Access Denied')),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'Permission denied: You do not have permission to manage this tournament.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, color: Colors.red),
+                ),
+              ),
+            ),
           );
         }
         

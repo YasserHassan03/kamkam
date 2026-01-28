@@ -151,6 +151,10 @@ class Tournament extends Equatable {
   /// Tournament venue (e.g., stadium name or location)
   final String? venue;
 
+  /// Sponsor logo URL (admin-only upload)
+  @JsonKey(name: 'sponsor_logo_url')
+  final String? sponsorLogoUrl;
+
   const Tournament({
     required this.id,
     required this.orgId,
@@ -170,6 +174,7 @@ class Tournament extends Equatable {
     this.updatedAt,
     this.hiddenByAdmin = false,
     this.venue,
+    this.sponsorLogoUrl,
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) =>
@@ -192,6 +197,7 @@ class Tournament extends Equatable {
     'qualifiers_per_group': qualifiersPerGroup,
     'rules_json': rules.toJson(),
     'venue': venue,
+    'sponsor_logo_url': sponsorLogoUrl,
   };
 
   Tournament copyWith({
@@ -213,6 +219,7 @@ class Tournament extends Equatable {
     DateTime? updatedAt,
     bool? hiddenByAdmin,
     String? venue,
+    String? sponsorLogoUrl,
   }) {
     return Tournament(
       id: id ?? this.id,
@@ -233,13 +240,14 @@ class Tournament extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       hiddenByAdmin: hiddenByAdmin ?? this.hiddenByAdmin,
       venue: venue ?? this.venue,
+      sponsorLogoUrl: sponsorLogoUrl ?? this.sponsorLogoUrl,
     );
   }
 
   @override
   List<Object?> get props => [
     id, orgId, ownerId, ownerEmail, name, seasonYear, startDate, endDate,
-    status, visibility, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt, hiddenByAdmin, venue
+    status, visibility, format, groupCount, qualifiersPerGroup, rules, createdAt, updatedAt, hiddenByAdmin, venue, sponsorLogoUrl
   ];
 }
 

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/match.dart';
+import '../../../data/models/match_event.dart';
 import '../../../core/constants/enums.dart';
+import '../../../providers/match_event_providers.dart';
 
 /// Modern match card widget for displaying fixture/result
-class MatchCard extends StatelessWidget {
+class MatchCard extends ConsumerStatefulWidget {
   final Match match;
   final VoidCallback? onTap;
   final bool showDate;
@@ -18,9 +21,18 @@ class MatchCard extends StatelessWidget {
   });
 
   @override
+  ConsumerState<MatchCard> createState() => _MatchCardState();
+}
+
+class _MatchCardState extends ConsumerState<MatchCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final match = widget.match;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasResult = match.hasResult;
+    final hasGoals = (match.homeGoals ?? 0) > 0 || (match.awayGoals ?? 0) > 0;
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -60,20 +72,51 @@ class MatchCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 // Date and status row
-                if (showDate) _buildDateRow(context),
+                if (widget.showDate) _buildDateRow(context, match),
                 
-                if (showDate) const SizedBox(height: 14),
+                if (widget.showDate) const SizedBox(height: 14),
                 
                 // Teams and score row
-                _buildTeamsRow(context),
-                
+                _buildTeamsRow(context, match),
+
+                // Expandable Goalscorers section
+                if (hasGoals) ...[
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () => setState(() => _isExpanded = !_isExpanded),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isExpanded ? 'Hide Scorers' : 'View Scorers',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_isExpanded) _buildGoalscorersSection(context, match),
+                ],
               ],
             ),
           ),
@@ -82,7 +125,7 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDateRow(BuildContext context) {
+  Widget _buildDateRow(BuildContext context, Match match) {
     final dateStr = match.kickoffTime != null
         ? DateFormat('EEE, d MMM · HH:mm').format(match.kickoffTime!)
         : 'Date TBD';
@@ -128,7 +171,7 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTeamsRow(BuildContext context) {
+  Widget _buildTeamsRow(BuildContext context, Match match) {
     final homeTeamName = match.homeTeam?.name ?? 'Home Team';
     final awayTeamName = match.awayTeam?.name ?? 'Away Team';
     final hasResult = match.hasResult;
@@ -193,8 +236,8 @@ class MatchCard extends StatelessWidget {
             ),
           ),
           child: Text(
-            hasResult 
-                ? '${match.homeGoals} - ${match.awayGoals}'
+            (hasResult || match.isLive) 
+                ? '${match.homeGoals ?? 0} - ${match.awayGoals ?? 0}'
                 : 'VS',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Theme.of(context).colorScheme.primary,
@@ -234,6 +277,90 @@ class MatchCard extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildGoalscorersSection(BuildContext context, Match match) {
+    final eventsAsync = ref.watch(matchEventsStreamProvider(match.id));
+
+    return eventsAsync.when(
+      data: (events) {
+        if (events.isEmpty) return const SizedBox.shrink();
+
+        // Sort events by minute
+        final sortedEvents = List<MatchEvent>.from(events)
+          ..sort((a, b) => (a.minute ?? 0).compareTo(b.minute ?? 0));
+
+        final homeScorers = sortedEvents.where((e) => e.teamId == match.homeTeamId).toList();
+        final awayScorers = sortedEvents.where((e) => e.teamId == match.awayTeamId).toList();
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Home Scorers
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: homeScorers.map((e) => _buildScorerItem(context, e, true)).toList(),
+                ),
+              ),
+              const SizedBox(width: 24),
+              // Away Scorers
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: awayScorers.map((e) => _buildScorerItem(context, e, false)).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(8.0),
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildScorerItem(BuildContext context, MatchEvent event, bool isHome) {
+    if (event.playerName == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isHome) ...[
+            const Icon(Icons.sports_soccer, size: 12, color: Colors.white),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              '${event.playerName} ${event.minute != null ? "(${event.minute}')" : ""}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isHome) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.sports_soccer, size: 12, color: Colors.white),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -243,6 +370,11 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use animated badge for live matches
+    if (status == MatchStatus.inProgress) {
+      return const _LiveBadge();
+    }
+
     Color color;
     IconData icon;
     switch (status) {
@@ -250,8 +382,8 @@ class _StatusBadge extends StatelessWidget {
         color = const Color(0xFF3366FF);
         icon = Icons.schedule;
       case MatchStatus.inProgress:
-        color = const Color(0xFFFFB84D);
-        icon = Icons.play_circle;
+        color = const Color(0xFFFF3B4A);
+        icon = Icons.circle;
       case MatchStatus.finished:
         color = const Color(0xFF00D981);
         icon = Icons.check_circle;
@@ -290,6 +422,95 @@ class _StatusBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Animated LIVE badge with pulsing effect
+class _LiveBadge extends StatefulWidget {
+  const _LiveBadge();
+
+  @override
+  State<_LiveBadge> createState() => _LiveBadgeState();
+}
+
+class _LiveBadgeState extends State<_LiveBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFFF3B4A);
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: 0.2 * _animation.value),
+                color.withValues(alpha: 0.1 * _animation.value),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: color.withValues(alpha: 0.5 * _animation.value),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: _animation.value),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.5 * _animation.value),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'LIVE',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

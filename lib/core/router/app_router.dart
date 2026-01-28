@@ -24,6 +24,7 @@ import '../../ui/screens/admin/player_list_screen.dart';
 import '../../ui/screens/admin/fixture_form_screen.dart';
 import '../../ui/screens/admin/enter_result_screen.dart';
 import '../../ui/screens/admin/user_management_screen.dart';
+import '../../ui/screens/admin/live_match_control_screen.dart';
 
 /// Global navigator key for showing dialogs that persist across route changes
 final globalNavigatorKey = GlobalKey<NavigatorState>();
@@ -357,6 +358,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final tournamentId = state.pathParameters['tournamentId']!;
           final matchId = state.pathParameters['matchId']!;
           return EnterResultScreen(tournamentId: tournamentId, matchId: matchId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/live-match/:matchId',
+        name: 'liveMatchControl',
+        builder: (context, state) {
+          final matchId = state.pathParameters['matchId']!;
+          return LiveMatchControlScreen(matchId: matchId);
         },
       ),
     ],

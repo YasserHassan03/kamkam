@@ -53,6 +53,8 @@ class TournamentDetailScreen extends ConsumerWidget {
               ref.invalidate(standingsByTournamentProvider(tournamentId));
               ref.invalidate(upcomingMatchesProvider(tournamentId));
               ref.invalidate(recentResultsProvider(tournamentId));
+              ref.invalidate(liveMatchesByTournamentProvider(tournamentId));
+              ref.invalidate(liveMatchesStreamProvider(tournamentId));
               ref.invalidate(goldenBootProvider(tournamentId));
             },
             child: SingleChildScrollView(
@@ -82,6 +84,9 @@ class TournamentDetailScreen extends ConsumerWidget {
 
                     const Divider(height: 32),
                   ],
+
+                  // Live Matches section (only shown if there are live matches)
+                  _LiveSection(tournamentId: tournamentId),
 
                   // Upcoming Fixtures section
                   _SectionHeader(
@@ -411,6 +416,48 @@ class _StandingsSection extends ConsumerWidget {
   }
 }
 
+class _LiveSection extends ConsumerWidget {
+  final String tournamentId;
+
+  const _LiveSection({required this.tournamentId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final matchesAsync = ref.watch(liveMatchesStreamProvider(tournamentId));
+    final canEdit = ref.watch(canEditTournamentProvider(tournamentId));
+
+    return matchesAsync.when(
+      data: (matches) {
+        if (matches.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          children: [
+            _SectionHeader(
+              title: 'LIVE',
+              onViewAll: null,
+            ),
+            ...matches.map((match) => MatchCard(
+              match: match,
+              onTap: canEdit
+                  ? () => context.push(
+                        match.isLive
+                            ? '/admin/live-match/${match.id}'
+                            : '/admin/tournaments/$tournamentId/matches/${match.id}/result',
+                      )
+                  : null,
+            )),
+            const Divider(height: 32),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
 class _UpcomingSection extends ConsumerWidget {
   final String tournamentId;
 
@@ -419,7 +466,7 @@ class _UpcomingSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchesAsync = ref.watch(upcomingMatchesProvider(tournamentId));
-    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final canEdit = ref.watch(canEditTournamentProvider(tournamentId));
 
     return matchesAsync.when(
       data: (matches) {
@@ -431,14 +478,23 @@ class _UpcomingSection extends ConsumerWidget {
         }
 
         return Column(
-          children: matches.take(3).map((match) => MatchCard(
-            match: match,
-            onTap: isAuthenticated
-                ? () => context.push('/admin/tournaments/$tournamentId/matches/${match.id}/result')
-                : null,
-          )).toList(),
+          children: matches
+              .where((match) => !match.isLive)
+              .take(3)
+              .map((match) => MatchCard(
+                    match: match,
+                    onTap: canEdit
+                        ? () => context.push(
+                              match.isLive
+                                  ? '/admin/live-match/${match.id}'
+                                  : '/admin/tournaments/$tournamentId/matches/${match.id}/result',
+                            )
+                        : null,
+                  ))
+              .toList(),
         );
       },
+
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
         child: Center(child: CircularProgressIndicator()),
@@ -459,7 +515,7 @@ class _ResultsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchesAsync = ref.watch(recentResultsProvider(tournamentId));
-    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final canEdit = ref.watch(canEditTournamentProvider(tournamentId));
 
     return matchesAsync.when(
       data: (matches) {
@@ -471,15 +527,24 @@ class _ResultsSection extends ConsumerWidget {
         }
 
         return Column(
-          children: matches.take(3).map((match) => MatchCard(
-            match: match,
-            showDate: true,
-            onTap: isAuthenticated
-                ? () => context.push('/admin/tournaments/$tournamentId/matches/${match.id}/result')
-                : null,
-          )).toList(),
+          children: matches
+              .where((match) => !match.isLive)
+              .take(3)
+              .map((match) => MatchCard(
+                    match: match,
+                    showDate: true,
+                    onTap: canEdit
+                        ? () => context.push(
+                              match.isLive
+                                  ? '/admin/live-match/${match.id}'
+                                  : '/admin/tournaments/$tournamentId/matches/${match.id}/result',
+                            )
+                        : null,
+                  ))
+              .toList(),
         );
       },
+
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
         child: Center(child: CircularProgressIndicator()),

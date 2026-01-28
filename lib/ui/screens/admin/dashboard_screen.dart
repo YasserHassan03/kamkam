@@ -226,24 +226,33 @@ class DashboardScreen extends ConsumerWidget {
                       children: tournaments.asMap().entries.map((entry) {
                         final index = entry.key;
                         final tournament = entry.value;
+                        // Find the organisation for this tournament to get its logo
+                        final org = myOrgs.firstWhere(
+                          (o) => o.id == tournament.orgId,
+                          orElse: () => myOrgs.first,
+                        );
                         return Padding(
                           padding: EdgeInsets.only(bottom: index < tournaments.length - 1 ? 8 : 0),
                           child: Card(
                             margin: EdgeInsets.zero,
                             child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: tournament.status == TournamentStatus.draft
-                                    ? Theme.of(context).colorScheme.tertiaryContainer
-                                    : Theme.of(context).colorScheme.secondaryContainer,
-                                child: Icon(
-                                  tournament.status == TournamentStatus.draft
-                                      ? Icons.edit_note
-                                      : Icons.emoji_events,
-                                  color: tournament.status == TournamentStatus.draft
-                                      ? Theme.of(context).colorScheme.onTertiaryContainer
-                                      : Theme.of(context).colorScheme.onSecondaryContainer,
-                                ),
-                              ),
+                              leading: org.logoUrl != null
+                                ? CircleAvatar(
+                                    backgroundImage: NetworkImage(org.logoUrl!),
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: tournament.status == TournamentStatus.draft
+                                        ? Theme.of(context).colorScheme.tertiaryContainer
+                                        : Theme.of(context).colorScheme.secondaryContainer,
+                                    child: Icon(
+                                      tournament.status == TournamentStatus.draft
+                                          ? Icons.edit_note
+                                          : Icons.emoji_events,
+                                      color: tournament.status == TournamentStatus.draft
+                                          ? Theme.of(context).colorScheme.onTertiaryContainer
+                                          : Theme.of(context).colorScheme.onSecondaryContainer,
+                                    ),
+                                  ),
                               title: Text(tournament.name),
                               subtitle: Text('${tournament.rules.type.displayName} · ${tournament.status.displayName}'),
                               trailing: const Icon(Icons.chevron_right_rounded),

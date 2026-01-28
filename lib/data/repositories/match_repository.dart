@@ -139,6 +139,6 @@ abstract class MatchRepository {
   /// Delete all fixtures for a tournament
   Future<void> deleteAllFixtures(String tournamentId);
 
-  /// Get matches involving a specific team
-  Future<List<Match>> getMatchesByTeam(String teamId);
+  /// Get all live matches for a tournament
+  Future<List<Match>> getLiveMatches(String tournamentId);
 }

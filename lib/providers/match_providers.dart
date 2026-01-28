@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/constants/app_constants.dart';
+import '../core/constants/enums.dart';
 import '../data/models/match.dart';
 import '../data/repositories/match_repository.dart';
 import 'repository_providers.dart';
@@ -34,6 +37,26 @@ final recentResultsProvider =
   return await repo.getRecentResults(tournamentId);
 });
 
+/// Live matches provider
+final liveMatchesByTournamentProvider =
+    FutureProvider.family<List<Match>, String>((ref, tournamentId) async {
+  final repo = ref.watch(matchRepositoryProvider);
+  return await repo.getLiveMatches(tournamentId);
+});
+
+/// Real-time live matches provider
+final liveMatchesStreamProvider = StreamProvider.family<List<Match>, String>((ref, tournamentId) {
+  final repo = ref.watch(matchRepositoryProvider);
+  
+  return Supabase.instance.client
+      .from(DbTables.matches)
+      .stream(primaryKey: ['id'])
+      .eq('tournament_id', tournamentId)
+      .asyncMap((_) async {
+        return await repo.getLiveMatches(tournamentId);
+      });
+});
+
 /// Matches by matchday provider
 final matchesByMatchdayProvider =
     FutureProvider.family<List<Match>, ({String tournamentId, int matchday})>((ref, params) async {
@@ -49,10 +72,12 @@ final matchByIdProvider =
 });
 
 /// Helper function to invalidate match providers
-void _invalidateMatchProviders(Ref ref, String tournamentId) {
+void invalidateMatchProviders(dynamic ref, String tournamentId) {
   ref.invalidate(matchesByTournamentProvider(tournamentId));
   ref.invalidate(upcomingMatchesProvider(tournamentId));
   ref.invalidate(recentResultsProvider(tournamentId));
+  ref.invalidate(liveMatchesByTournamentProvider(tournamentId));
+  ref.invalidate(liveMatchesStreamProvider(tournamentId));
 }
 
 /// Create match request class
@@ -105,7 +130,7 @@ final createMatchProvider =
     FutureProvider.family<Match, CreateMatchRequest>((ref, request) async {
   final repo = ref.watch(matchRepositoryProvider);
   final created = await repo.createMatch(request.match);
-  _invalidateMatchProviders(ref, request.match.tournamentId);
+  invalidateMatchProviders(ref, request.match.tournamentId);
   return created;
 });
 
@@ -114,7 +139,7 @@ final updateMatchProvider =
     FutureProvider.family<Match, UpdateMatchRequest>((ref, request) async {
   final repo = ref.watch(matchRepositoryProvider);
   final updated = await repo.updateMatch(request.match);
-  _invalidateMatchProviders(ref, request.match.tournamentId);
+  invalidateMatchProviders(ref, request.match.tournamentId);
   ref.invalidate(matchByIdProvider(request.match.id));
   return updated;
 });
@@ -124,7 +149,7 @@ final deleteMatchProvider =
     FutureProvider.family<void, DeleteMatchRequest>((ref, request) async {
   final repo = ref.watch(matchRepositoryProvider);
   await repo.deleteMatch(request.id);
-  _invalidateMatchProviders(ref, request.tournamentId);
+  invalidateMatchProviders(ref, request.tournamentId);
 });
 
 /// Update match result provider (transactional with standings)
@@ -138,7 +163,7 @@ final updateMatchResultProvider =
   );
   
   if (result.success) {
-    _invalidateMatchProviders(ref, request.tournamentId);
+    invalidateMatchProviders(ref, request.tournamentId);
     ref.invalidate(matchByIdProvider(request.matchId));
     // Also invalidate standings since they're updated transactionally
     ref.invalidate(standingsByTournamentProvider(request.tournamentId));
@@ -161,7 +186,7 @@ final generateFixturesProvider =
     final result = FixtureGenerationResult.fromJson(response);
 
     if (result.success) {
-      _invalidateMatchProviders(ref, request.tournamentId);
+      invalidateMatchProviders(ref, request.tournamentId);
     }
 
     return result;
@@ -177,7 +202,7 @@ final deleteAllFixturesProvider =
     FutureProvider.family<void, String>((ref, tournamentId) async {
   final repo = ref.watch(matchRepositoryProvider);
   await repo.deleteAllFixtures(tournamentId);
-  _invalidateMatchProviders(ref, tournamentId);
+  invalidateMatchProviders(ref, tournamentId);
 });
 
 /// Generate knockout stage for group_knockout tournaments (after group stage completion)
@@ -186,7 +211,7 @@ final generateGroupKnockoutKnockoutsProvider =
   final repo = ref.watch(matchRepositoryProvider);
   final result = await repo.generateGroupKnockoutKnockouts(tournamentId: tournamentId);
   if (result.success) {
-    _invalidateMatchProviders(ref, tournamentId);
+    invalidateMatchProviders(ref, tournamentId);
     ref.invalidate(bracketByTournamentProvider(tournamentId));
   }
   return result;

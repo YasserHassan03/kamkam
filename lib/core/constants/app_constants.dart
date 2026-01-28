@@ -14,6 +14,9 @@ class AppConstants {
   // TODO: Replace with your actual Supabase credentials
   static const String supabaseUrl = 'https://zpgkejmnvmaesifxdkhx.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwZ2tlam1udm1hZXNpZnhka2h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjg5MTEsImV4cCI6MjA4NDc0NDkxMX0.QV1fnnt7WB9WPcqduf-ZdC7oYzGTG7ISb-tbQcoCvic';
+
+  // Supabase Storage Buckets
+  static const String logosBucket = 'logos';
   // Default Tournament Rules
   static const int defaultPointsForWin = 3;
   static const int defaultPointsForDraw = 1;

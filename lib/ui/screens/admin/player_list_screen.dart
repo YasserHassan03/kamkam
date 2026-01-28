@@ -158,6 +158,7 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
         );
         await ref.read(createPlayerProvider(CreatePlayerRequest(player)).future);
         ref.invalidate(playersByTeamProvider(widget.teamId));
+        ref.invalidate(goldenBootProvider(widget.tournamentId));
       },
     );
   }
@@ -178,6 +179,7 @@ class _PlayerListScreenState extends ConsumerState<PlayerListScreen> {
         );
         await ref.read(updatePlayerProvider(UpdatePlayerRequest(updated)).future);
         ref.invalidate(playersByTeamProvider(widget.teamId));
+        ref.invalidate(goldenBootProvider(widget.tournamentId));
       },
     );
   }

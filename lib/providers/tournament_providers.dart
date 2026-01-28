@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/tournament.dart';
 import 'repository_providers.dart';
 import 'match_providers.dart';
+import 'user_profile_providers.dart';
+import 'auth_providers.dart';
 
 /// Public tournaments provider
 final publicTournamentsProvider = FutureProvider<List<Tournament>>((ref) async {
@@ -162,3 +164,22 @@ final generateTeamsAndFixturesProvider =
   ref.invalidate(tournamentByIdProvider(params.tournamentId));
   ref.invalidate(matchesByTournamentProvider(params.tournamentId));
 });
+
+/// Check if the current user is the owner of a tournament
+final isTournamentOwnerProvider = Provider.family<bool, String>((ref, tournamentId) {
+  final tournamentAsync = ref.watch(tournamentByIdProvider(tournamentId));
+  final authState = ref.watch(authNotifierProvider);
+  
+  return tournamentAsync.maybeWhen(
+    data: (tournament) => tournament != null && authState.value?.id == tournament.ownerId,
+    orElse: () => false,
+  );
+});
+
+/// Check if the current user can edit a tournament (owner or admin)
+final canEditTournamentProvider = Provider.family<bool, String>((ref, tournamentId) {
+  final isOwner = ref.watch(isTournamentOwnerProvider(tournamentId));
+  final isAdmin = ref.watch(isUserAdminProvider);
+  return isOwner || isAdmin;
+});
+
