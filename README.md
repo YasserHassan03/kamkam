@@ -4,6 +4,6 @@ Redefining tournament management as you know it.
 
 ## Contact
 
-yotti2003@gmail.com
+email yotti2003@gmail.com to delete acount
 
 
