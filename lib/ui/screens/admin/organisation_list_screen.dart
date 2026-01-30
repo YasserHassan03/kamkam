@@ -33,7 +33,7 @@ class OrganisationListScreen extends ConsumerWidget {
                   title: 'No Organisations',
                   subtitle: 'Create your first organisation to get started',
                   action: FilledButton.icon(
-                    onPressed: () => context.go('/admin/organisations/new'),
+                    onPressed: () => context.push('/admin/organisations/new'),
                     icon: const Icon(Icons.add),
                     label: const Text('Create Organisation'),
                   ),
@@ -95,7 +95,7 @@ class OrganisationListScreen extends ConsumerWidget {
                       ],
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => context.go('/admin/organisations/${org.id}'),
+                    onTap: () => context.push('/admin/organisations/${org.id}'),
                   ),
                 );
               },
@@ -109,7 +109,7 @@ class OrganisationListScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/admin/organisations/new'),
+        onPressed: () => context.push('/admin/organisations/new'),
         icon: const Icon(Icons.add),
         label: const Text('New'),
       ),

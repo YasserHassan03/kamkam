@@ -21,17 +21,16 @@ import '../../widgets/standings/standings_table.dart';
 /// Overview tab for league tournaments: quick stats + recent activity
 class _OverviewTab extends ConsumerWidget {
   final Tournament tournament;
-  final AsyncValue<List<Team>> teamsAsync;
-  final AsyncValue<List<Match>> matchesAsync;
 
   const _OverviewTab({
     required this.tournament,
-    required this.teamsAsync,
-    required this.matchesAsync,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final teamsAsync = ref.watch(teamsByTournamentProvider(tournament.id));
+    final matchesAsync = ref.watch(matchesByTournamentProvider(tournament.id));
+
     final teams = teamsAsync.when(
       data: (data) => data,
       loading: () => const <Team>[],
@@ -580,15 +579,14 @@ class _KnockoutsTabState extends ConsumerState<_KnockoutsTab> {
 /// Teams management tab
 class _TeamsTab extends ConsumerWidget {
   final String tournamentId;
-  final AsyncValue<List<Team>> teamsAsync;
 
   const _TeamsTab({
     required this.tournamentId,
-    required this.teamsAsync,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final teamsAsync = ref.watch(teamsByTournamentProvider(tournamentId));
     return Column(
       children: [
         Padding(
@@ -597,7 +595,7 @@ class _TeamsTab extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               FilledButton.icon(
-                onPressed: () => context.go(
+                onPressed: () => context.push(
                   '/admin/tournaments/$tournamentId/teams/new',
                 ),
                 icon: const Icon(Icons.add_rounded),
@@ -640,14 +638,14 @@ class _TeamsTab extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.group_rounded),
                             tooltip: 'Players',
-                            onPressed: () => context.go(
+                            onPressed: () => context.push(
                               '/admin/tournaments/$tournamentId/teams/${team.id}/players',
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_rounded),
                             tooltip: 'Edit team',
-                            onPressed: () => context.go(
+                            onPressed: () => context.push(
                               '/admin/tournaments/$tournamentId/teams/${team.id}',
                             ),
                           ),
@@ -673,15 +671,14 @@ class _TeamsTab extends ConsumerWidget {
 /// Fixtures management tab
 class _FixturesTab extends ConsumerWidget {
   final String tournamentId;
-  final AsyncValue<List<Match>> matchesAsync;
 
   const _FixturesTab({
     required this.tournamentId,
-    required this.matchesAsync,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final matchesAsync = ref.watch(matchesByTournamentProvider(tournamentId));
     return Column(
       children: [
         Padding(
@@ -705,7 +702,7 @@ class _FixturesTab extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () => context.go(
+                  onPressed: () => context.push(
                     '/admin/tournaments/$tournamentId/fixtures/new',
                   ),
                   icon: const Icon(Icons.add_rounded),
@@ -790,8 +787,7 @@ class _FixturesTab extends ConsumerWidget {
 }
 
 // Remove duplicate placeholder _StandingsTab class
-/// Admin view for managing a specific tournament
-class TournamentAdminScreen extends ConsumerWidget {
+class TournamentAdminScreen extends ConsumerStatefulWidget {
   final String tournamentId;
 
   const TournamentAdminScreen({
@@ -800,10 +796,27 @@ class TournamentAdminScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tournamentAsync = ref.watch(tournamentByIdProvider(tournamentId));
-    final teamsAsync = ref.watch(teamsByTournamentProvider(tournamentId));
-    final matchesAsync = ref.watch(matchesByTournamentProvider(tournamentId));
+  ConsumerState<TournamentAdminScreen> createState() => _TournamentAdminScreenState();
+}
+
+class _TournamentAdminScreenState extends ConsumerState<TournamentAdminScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tournamentAsync = ref.watch(tournamentByIdProvider(widget.tournamentId));
 
     return tournamentAsync.when(
       data: (tournament) {
@@ -815,7 +828,7 @@ class TournamentAdminScreen extends ConsumerWidget {
         }
 
         // PERMISSION CHECK
-        final canEdit = ref.watch(canEditTournamentProvider(tournamentId));
+        final canEdit = ref.watch(canEditTournamentProvider(widget.tournamentId));
         if (!canEdit) {
           return Scaffold(
             appBar: AppBar(title: const Text('Access Denied')),
@@ -852,86 +865,81 @@ class TournamentAdminScreen extends ConsumerWidget {
             appBar: AppBar(title: const Text('Error')),
             body: AppErrorWidget(
               message: 'Invalid tournament data: $e',
-              onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
+              onRetry: () => ref.invalidate(tournamentByIdProvider(widget.tournamentId)),
             ),
           );
         }
         
-        return DefaultTabController(
-          length: 4,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text(tournament.name),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/admin');
-                  }
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(tournament.name),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/admin');
+                }
+              },
+            ),
+            actions: [
+              // Admin-only: Hide/Show tournament toggle
+              Consumer(
+                builder: (context, ref, _) {
+                  final isAdmin = ref.watch(isUserAdminProvider);
+                  if (!isAdmin) return const SizedBox.shrink();
+                  
+                  return IconButton(
+                    icon: Icon(tournament.hiddenByAdmin ? Icons.visibility_off : Icons.visibility),
+                    tooltip: tournament.hiddenByAdmin 
+                        ? 'Show Tournament (Currently Hidden)' 
+                        : 'Hide Tournament from Public',
+                    onPressed: () => _showToggleVisibilityDialog(
+                      context, 
+                      ref, 
+                      tournament.id, 
+                      tournament.name,
+                      tournament.hiddenByAdmin,
+                    ),
+                  );
                 },
               ),
-              actions: [
-                // Admin-only: Hide/Show tournament toggle
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isAdmin = ref.watch(isUserAdminProvider);
-                    if (!isAdmin) return const SizedBox.shrink();
-                    
-                    return IconButton(
-                      icon: Icon(tournament.hiddenByAdmin ? Icons.visibility_off : Icons.visibility),
-                      tooltip: tournament.hiddenByAdmin 
-                          ? 'Show Tournament (Currently Hidden)' 
-                          : 'Hide Tournament from Public',
-                      onPressed: () => _showToggleVisibilityDialog(
-                        context, 
-                        ref, 
-                        tournament.id, 
-                        tournament.name,
-                        tournament.hiddenByAdmin,
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  tooltip: 'Delete Tournament',
-                  onPressed: () => _showDeleteTournamentDialog(context, ref, tournament.id, tournament.name),
-                ),
-              ],
-              bottom: TabBar(
-                tabs: [
-                  const Tab(text: 'Overview'),
-                  const Tab(text: 'Teams'),
-                  const Tab(text: 'Fixtures'),
-                  Tab(text: tournament.format == 'league' ? 'Standings' : 'Draw'),
-                ],
+              IconButton(
+                icon: const Icon(Icons.delete),
+                tooltip: 'Delete Tournament',
+                onPressed: () => _showDeleteTournamentDialog(context, ref, tournament.id, tournament.name),
               ),
-            ),
-            body: TabBarView(
-              children: [
-                _OverviewTab(
-                  tournament: tournament,
-                  teamsAsync: teamsAsync,
-                  matchesAsync: matchesAsync,
-                ),
-                _TeamsTab(
-                  tournamentId: tournamentId,
-                  teamsAsync: teamsAsync,
-                ),
-                _FixturesTab(
-                  tournamentId: tournamentId,
-                  matchesAsync: matchesAsync,
-                ),
-                tournament.format == 'league'
-                  ? _StandingsTab(tournamentId: tournamentId)
-                  : _BracketStandingsTab(
-                      tournamentId: tournamentId,
-                      tournament: tournament,
-                    ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: [
+                const Tab(text: 'Overview'),
+                const Tab(text: 'Teams'),
+                const Tab(text: 'Fixtures'),
+                Tab(text: tournament.format == 'league' ? 'Standings' : 'Draw'),
               ],
             ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _OverviewTab(
+                tournament: tournament,
+              ),
+              _TeamsTab(
+                tournamentId: widget.tournamentId,
+              ),
+              _FixturesTab(
+                tournamentId: widget.tournamentId,
+              ),
+              tournament.format == 'league'
+                ? _StandingsTab(tournamentId: widget.tournamentId)
+                : _BracketStandingsTab(
+                    tournamentId: widget.tournamentId,
+                    tournament: tournament,
+                  ),
+            ],
           ),
         );
       },
@@ -941,7 +949,7 @@ class TournamentAdminScreen extends ConsumerWidget {
       ),
       error: (e, stackTrace) {
         // Log the error with full details
-        debugPrint('ERROR: TournamentAdminScreen - Failed to load tournament $tournamentId');
+        debugPrint('ERROR: TournamentAdminScreen - Failed to load tournament ${widget.tournamentId}');
         debugPrint('Error: $e');
         debugPrint('Stack trace: $stackTrace');
         if (e is TypeError) {
@@ -951,7 +959,7 @@ class TournamentAdminScreen extends ConsumerWidget {
           appBar: AppBar(title: const Text('Error')),
           body: AppErrorWidget(
             message: e.toString(),
-            onRetry: () => ref.invalidate(tournamentByIdProvider(tournamentId)),
+            onRetry: () => ref.invalidate(tournamentByIdProvider(widget.tournamentId)),
           ),
         );
       },

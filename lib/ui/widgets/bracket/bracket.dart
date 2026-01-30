@@ -162,8 +162,24 @@ class _BracketMatchTile extends ConsumerWidget {
     final away = match.awayTeam?.name ?? match.awayQualifier ?? 'TBD';
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final hasResult = match.hasResult;
-    final homeWins = hasResult && (match.homeGoals ?? 0) > (match.awayGoals ?? 0);
-    final awayWins = hasResult && (match.awayGoals ?? 0) > (match.homeGoals ?? 0);
+    
+    // Win logic: check regular goals, then penalty goals if equal
+    bool homeWins = false;
+    bool awayWins = false;
+    
+    if (hasResult) {
+      if ((match.homeGoals ?? 0) > (match.awayGoals ?? 0)) {
+        homeWins = true;
+      } else if ((match.awayGoals ?? 0) > (match.homeGoals ?? 0)) {
+        awayWins = true;
+      } else if (match.homePenaltyGoals != null && match.awayPenaltyGoals != null) {
+        if (match.homePenaltyGoals! > match.awayPenaltyGoals!) {
+          homeWins = true;
+        } else if (match.awayPenaltyGoals! > match.homePenaltyGoals!) {
+          awayWins = true;
+        }
+      }
+    }
 
     return SizedBox(
       height: height,
@@ -211,16 +227,26 @@ class _BracketMatchTile extends ConsumerWidget {
                               ),
                             ),
                             if (hasResult)
-                              SizedBox(
-                                width: 24,
-                                child: Text(
-                                  '${match.homeGoals}',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: homeWins ? AppTheme.winColor : null,
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${match.homeGoals}',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: homeWins ? AppTheme.winColor : null,
+                                    ),
+                                    textAlign: TextAlign.right,
                                   ),
-                                  textAlign: TextAlign.right,
-                                ),
+                                  if (match.isDraw! && match.homePenaltyGoals != null)
+                                    Text(
+                                      ' (${match.homePenaltyGoals})',
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: homeWins ? AppTheme.winColor : null,
+                                      ),
+                                    ),
+                                ],
                               ),
                           ],
                         ),
@@ -259,16 +285,26 @@ class _BracketMatchTile extends ConsumerWidget {
                               ),
                             ),
                             if (hasResult)
-                              SizedBox(
-                                width: 24,
-                                child: Text(
-                                  '${match.awayGoals}',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: awayWins ? AppTheme.winColor : null,
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${match.awayGoals}',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: awayWins ? AppTheme.winColor : null,
+                                    ),
+                                    textAlign: TextAlign.right,
                                   ),
-                                  textAlign: TextAlign.right,
-                                ),
+                                  if (match.isDraw! && match.awayPenaltyGoals != null)
+                                    Text(
+                                      ' (${match.awayPenaltyGoals})',
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: awayWins ? AppTheme.winColor : null,
+                                      ),
+                                    ),
+                                ],
                               ),
                           ],
                         ),

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kam Kam - Organizer's Manual</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --dark: #1a1f2e;
+            --light-bg: #f8fafc;
+            --text: #334155;
+            --accent: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: white;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            color: var(--dark);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: var(--primary);
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+            margin-top: 40px;
+        }
+
+        h3 {
+            color: var(--dark);
+            margin-top: 25px;
+        }
+
+        .tagline {
+            font-style: italic;
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        .feature-box {
+            background: var(--light-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .pro-tip {
+            background: #f0fdf4;
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.95rem;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #ef4444;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+
+        .btn-print {
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="no-print" style="text-align: right;">
+        <button class="btn-print" onclick="window.print()">Print to PDF</button>
+    </div>
+
+    <div class="header">
+        <h1>Kam Kam: Tournament Organizer's Manual 🏆</h1>
+        <p class="tagline">The premium real-time experience for Ramadan Football.</p>
+    </div>
+
+    <section>
+        <h2>🚀 1. Getting Started</h2>
+        <h3>Account Setup</h3>
+        <p>Your journey begins by creating an <strong>Organisation</strong>. This represents your brand (e.g., "GSC
+            Ramadan League") and will be visible to all players and fans.</p>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Sign Up:</strong> Register with your business email.</li>
+                <li><strong>Brand Identity:</strong> Upload your logo and set your organization name.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <h2>🏗️ 2. Setting Up Your Tournament</h2>
+        <p>Inside your Organisation, you can host multiple tournaments (e.g., "Winter 2026", "Ramadan Cup").</p>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Scoring Rules:</strong> Set custom points for Win/Draw/Loss.</li>
+                <li><strong>Automated Tie-Breaks:</strong> Kam Kam automatically applies standard fair-play rules (Goal
+                    Difference, Goals For, etc.) for level points.</li>
+                <li><strong>Flexible Formats:</strong> Choose from League, Knockout, or Group + Knockout stages.</li>
+                <li><strong>Team Rosters:</strong> Add teams with custom colors and full player lists (Name & Number).
+                </li>
+            </ul>
+        </div>
+        <div class="pro-tip">
+            <strong>Pro Tip:</strong> Even if you don't have player names yet, you can still run live matches and just
+            update the score!
+        </div>
+    </section>
+
+    <section>
+        <h2>📅 3. Scheduling & Fixtures</h2>
+        <h3>Automatic Generation</h3>
+        <p>Say goodbye to manual spreadsheets. Kam Kam generates your schedule in seconds.</p>
+        <ul>
+            <li>Go to the <strong>Fixtures</strong> tab.</li>
+            <li>Click <strong>Generate Fixtures</strong>.</li>
+            <li>The system ensures a fair round-robin where everyone plays each other.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>⚽ 4. Match Day: Live Control</h2>
+        <p>This is your digital scoreboard that feeds live updates to everyone's devices.</p>
+        <div class="feature-box">
+            <ol>
+                <li><strong>Start Match:</strong> Turns the game "LIVE" for everyone watching.</li>
+                <li><strong>Record Goals:</strong> Select the team and player to update the score instantly.</li>
+                <li><strong>End Match:</strong> Standings and Golden Boot stats update the moment you finish.</li>
+            </ol>
+        </div>
+        <p><strong>Manual Adjustments:</strong> If a mistake happens, organizers can manually edit any result or player
+            goal count in the admin panel at any time.</p>
+    </section>
+
+    <section>
+        <h2>📊 5. Standings & Public Experience</h2>
+        <p>Everything in Kam Kam is automated for a "Hands-Off" experience once the scores are in.</p>
+        <ul>
+            <li><strong>Live League Tables:</strong> Updated in real-time.</li>
+            <li><strong>Golden Boot:</strong> A dynamic leaderboard for top scorers.</li>
+            <li><strong>Fan Favorites:</strong> Fans can "Heart" your tournament to pin it to their home screen.</li>
+        </ul>
+    </section>
+
+    <div class="footer">
+        <p>Kam Kam - Elevating the Football Experience</p>
+        <p>&copy; 2026 Kam Kam Team</p>
+    </div>
+</body>
+
+</html>

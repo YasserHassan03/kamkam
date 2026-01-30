@@ -16,8 +16,8 @@ class SupabaseMatchRepository implements MatchRepository {
         .from(DbTables.matches)
         .select()
         .eq('tournament_id', tournamentId)
-        .order('matchday')
-        .order('kickoff_time');
+        .order('matchday', ascending: true)
+        .order('kickoff_time', ascending: true);
 
     return (response as List).map((json) => Match.fromJson(json)).toList();
   }
@@ -32,8 +32,8 @@ class SupabaseMatchRepository implements MatchRepository {
           away_team:teams!matches_away_team_id_fkey(*)
         ''')
         .eq('tournament_id', tournamentId)
-        .order('matchday')
-        .order('kickoff_time');
+        .order('matchday', ascending: true)
+        .order('kickoff_time', ascending: true);
 
     return (response as List).map((json) => Match.fromJson(json)).toList();
   }
@@ -49,7 +49,8 @@ class SupabaseMatchRepository implements MatchRepository {
         ''')
         .eq('tournament_id', tournamentId)
         .eq('status', 'scheduled')
-        .order('kickoff_time')
+        .order('matchday', ascending: true)
+        .order('kickoff_time', ascending: true)
         .limit(limit);
 
     return (response as List).map((json) => Match.fromJson(json)).toList();
@@ -156,6 +157,8 @@ class SupabaseMatchRepository implements MatchRepository {
     required String matchId,
     required int homeGoals,
     required int awayGoals,
+    int? homePenaltyGoals,
+    int? awayPenaltyGoals,
   }) async {
     try {
       final response = await _client.rpc(
@@ -164,6 +167,8 @@ class SupabaseMatchRepository implements MatchRepository {
           'p_match_id': matchId,
           'p_home_goals': homeGoals,
           'p_away_goals': awayGoals,
+          'p_home_penalty_goals': homePenaltyGoals,
+          'p_away_penalty_goals': awayPenaltyGoals,
         },
       );
 
@@ -174,6 +179,8 @@ class SupabaseMatchRepository implements MatchRepository {
         matchId: matchId,
         homeGoals: homeGoals,
         awayGoals: awayGoals,
+        homePenaltyGoals: homePenaltyGoals,
+        awayPenaltyGoals: awayPenaltyGoals,
         error: e.toString(),
       );
     }
@@ -271,6 +278,9 @@ class SupabaseMatchRepository implements MatchRepository {
           'status': MatchStatus.inProgress.jsonValue,
           'home_goals': 0,
           'away_goals': 0,
+          'is_clock_running': true,
+          'clock_start_time': DateTime.now().toUtc().toIso8601String(),
+          'accumulated_seconds': 0,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', matchId)
@@ -288,7 +298,12 @@ class SupabaseMatchRepository implements MatchRepository {
   Future<Match> endMatch(String matchId) async {
     final response = await _client
         .from(DbTables.matches)
-        .update({'status': 'finished'})
+        .update({
+          'status': 'finished',
+          'is_clock_running': false,
+          'clock_start_time': null,
+          // accumulated_seconds is handled by DB trigger, but safe to set here if needed
+        })
         .eq('id', matchId)
         .select('''
           *,
@@ -344,9 +359,41 @@ class SupabaseMatchRepository implements MatchRepository {
         ''')
         .eq('tournament_id', tournamentId)
         .eq('status', 'in_progress')
-        .order('kickoff_time');
+        .order('matchday', ascending: true)
+        .order('kickoff_time', ascending: true);
 
     return (response as List).map((json) => Match.fromJson(json)).toList();
+  }
+
+  @override
+  Future<Match> toggleMatchClock(Match match, bool start) async {
+    final now = DateTime.now().toUtc();
+    final Map<String, dynamic> updates = {
+      'is_clock_running': start,
+      'updated_at': now.toIso8601String(),
+    };
+
+    if (start) {
+      // Starting or Resuming
+      updates['clock_start_time'] = now.toIso8601String();
+    } else {
+      // Pausing
+      updates['clock_start_time'] = null;
+      updates['accumulated_seconds'] = match.elapsedSeconds;
+    }
+
+    final response = await _client
+        .from(DbTables.matches)
+        .update(updates)
+        .eq('id', match.id)
+        .select('''
+          *,
+          home_team:teams!matches_home_team_id_fkey(*),
+          away_team:teams!matches_away_team_id_fkey(*)
+        ''')
+        .single();
+
+    return Match.fromJson(response);
   }
 }
 

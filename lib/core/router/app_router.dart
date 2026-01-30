@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_providers.dart';
@@ -11,6 +12,7 @@ import '../../ui/screens/public/standings_screen.dart';
 import '../../ui/screens/public/fixtures_screen.dart';
 import '../../ui/screens/public/results_screen.dart';
 import '../../ui/screens/public/golden_boot_screen.dart';
+import '../../ui/screens/public/teams_screen.dart';
 import '../../ui/screens/auth/login_screen.dart';
 import '../../ui/screens/auth/register_screen.dart';
 import '../../ui/screens/auth/pending_approval_screen.dart';
@@ -161,57 +163,63 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         name: 'home',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const HomeScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: HomeScreen(),
         ),
       ),
       GoRoute(
         path: '/pending-approval',
         name: 'pendingApproval',
-        builder: (context, state) => const PendingApprovalScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: PendingApprovalScreen(),
+        ),
       ),
       GoRoute(
         path: '/tournament/:id',
         name: 'tournamentDetail',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
-          return TournamentDetailScreen(tournamentId: id);
+          return CupertinoPage(child: TournamentDetailScreen(tournamentId: id));
         },
         routes: [
           GoRoute(
             path: 'golden-boot',
             name: 'goldenBoot',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return GoldenBootScreen(tournamentId: id);
+              return CupertinoPage(child: GoldenBootScreen(tournamentId: id));
             },
           ),
           GoRoute(
             path: 'standings',
             name: 'standings',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return StandingsScreen(tournamentId: id);
+              return CupertinoPage(child: StandingsScreen(tournamentId: id));
             },
           ),
           GoRoute(
             path: 'fixtures',
             name: 'fixtures',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return FixturesScreen(tournamentId: id);
+              return CupertinoPage(child: FixturesScreen(tournamentId: id));
             },
           ),
           GoRoute(
             path: 'results',
             name: 'results',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return ResultsScreen(tournamentId: id);
+              return CupertinoPage(child: ResultsScreen(tournamentId: id));
+            },
+          ),
+          GoRoute(
+            path: 'teams',
+            name: 'tournamentTeams',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return CupertinoPage(child: TeamsScreen(tournamentId: id));
             },
           ),
         ],
@@ -221,27 +229,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         name: 'login',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final redirect = state.uri.queryParameters['redirect'];
-          return LoginScreen(redirectTo: redirect);
+          return CupertinoPage(child: LoginScreen(redirectTo: redirect));
         },
       ),
       GoRoute(
         path: '/register',
         name: 'register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: RegisterScreen(),
+        ),
       ),
 
       // ============ Admin Routes ============
       GoRoute(
         path: '/admin',
         name: 'dashboard',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const DashboardScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: DashboardScreen(),
         ),
       ),
       
@@ -249,7 +255,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/users',
         name: 'userManagement',
-        builder: (context, state) => const UserManagementScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: UserManagementScreen(),
+        ),
       ),
       
       // Organisation routes - redirect list to dashboard
@@ -261,14 +269,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/organisations/new',
         name: 'createOrganisation',
-        builder: (context, state) => const OrganisationFormScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: OrganisationFormScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/organisations/:orgId',
         name: 'editOrganisation',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final orgId = state.pathParameters['orgId']!;
-          return OrganisationFormScreen(organisationId: orgId);
+          return CupertinoPage(child: OrganisationFormScreen(organisationId: orgId));
         },
       ),
 
@@ -281,27 +291,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/tournaments/manage',
         name: 'tournamentManagement',
-        builder: (context, state) => const TournamentManagementScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: TournamentManagementScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/tournaments/new',
         name: 'createTournament',
-        builder: (context, state) => const TournamentFormScreen(),
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: TournamentFormScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId',
         name: 'tournamentAdmin',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
-          return TournamentAdminScreen(tournamentId: tournamentId);
+          return CupertinoPage(child: TournamentAdminScreen(tournamentId: tournamentId));
         },
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId/edit',
         name: 'editTournament',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
-          return TournamentFormScreen(tournamentId: tournamentId);
+          return CupertinoPage(child: TournamentFormScreen(tournamentId: tournamentId));
         },
       ),
 
@@ -309,27 +323,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/tournaments/:tournamentId/teams/new',
         name: 'createTeam',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
-          return TeamFormScreen(tournamentId: tournamentId);
+          return CupertinoPage(child: TeamFormScreen(tournamentId: tournamentId));
         },
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId/teams/:teamId',
         name: 'editTeam',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
           final teamId = state.pathParameters['teamId']!;
-          return TeamFormScreen(tournamentId: tournamentId, teamId: teamId);
+          return CupertinoPage(child: TeamFormScreen(tournamentId: tournamentId, teamId: teamId));
         },
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId/teams/:teamId/players',
         name: 'teamPlayers',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
           final teamId = state.pathParameters['teamId']!;
-          return PlayerListScreen(tournamentId: tournamentId, teamId: teamId);
+          return CupertinoPage(child: PlayerListScreen(tournamentId: tournamentId, teamId: teamId));
         },
       ),
 
@@ -337,35 +351,35 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/tournaments/:tournamentId/fixtures/new',
         name: 'createFixture',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
-          return FixtureFormScreen(tournamentId: tournamentId);
+          return CupertinoPage(child: FixtureFormScreen(tournamentId: tournamentId));
         },
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId/fixtures/:matchId',
         name: 'editFixture',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
           final matchId = state.pathParameters['matchId']!;
-          return FixtureFormScreen(tournamentId: tournamentId, matchId: matchId);
+          return CupertinoPage(child: FixtureFormScreen(tournamentId: tournamentId, matchId: matchId));
         },
       ),
       GoRoute(
         path: '/admin/tournaments/:tournamentId/matches/:matchId/result',
         name: 'enterResult',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tournamentId = state.pathParameters['tournamentId']!;
           final matchId = state.pathParameters['matchId']!;
-          return EnterResultScreen(tournamentId: tournamentId, matchId: matchId);
+          return CupertinoPage(child: EnterResultScreen(tournamentId: tournamentId, matchId: matchId));
         },
       ),
       GoRoute(
         path: '/admin/live-match/:matchId',
         name: 'liveMatchControl',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final matchId = state.pathParameters['matchId']!;
-          return LiveMatchControlScreen(matchId: matchId);
+          return CupertinoPage(child: LiveMatchControlScreen(matchId: matchId));
         },
       ),
     ],

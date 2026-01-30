@@ -6,6 +6,7 @@ import '../../../data/models/match.dart';
 import '../../../data/models/match_event.dart';
 import '../../../core/constants/enums.dart';
 import '../../../providers/match_event_providers.dart';
+import 'match_clock.dart';
 
 /// Modern match card widget for displaying fixture/result
 class MatchCard extends ConsumerStatefulWidget {
@@ -26,6 +27,7 @@ class MatchCard extends ConsumerStatefulWidget {
 
 class _MatchCardState extends ConsumerState<MatchCard> {
   bool _isExpanded = false;
+  bool _isNavigating = false;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +74,18 @@ class _MatchCardState extends ConsumerState<MatchCard> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: widget.onTap,
+          onTap: widget.onTap == null ? null : () async {
+            if (_isNavigating) return;
+            setState(() => _isNavigating = true);
+            
+            widget.onTap!();
+            
+            // Push protection delay
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (mounted) {
+              setState(() => _isNavigating = false);
+            }
+          },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -166,6 +179,11 @@ class _MatchCardState extends ConsumerState<MatchCard> {
             ),
           ),
         ),
+        if (match.isLive || match.isClockRunning)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: MatchClock(match: match),
+          ),
         _StatusBadge(status: match.status),
       ],
     );
@@ -210,7 +228,7 @@ class _MatchCardState extends ConsumerState<MatchCard> {
         // Score - Modern design
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             gradient: hasResult
                 ? LinearGradient(
@@ -235,14 +253,32 @@ class _MatchCardState extends ConsumerState<MatchCard> {
               width: 1,
             ),
           ),
-          child: Text(
-            (hasResult || match.isLive) 
-                ? '${match.homeGoals ?? 0} - ${match.awayGoals ?? 0}'
-                : 'VS',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                (hasResult || match.isLive) 
+                    ? '${match.homeGoals ?? 0} - ${match.awayGoals ?? 0}'
+                    : 'VS',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (match.isDraw == true && match.homePenaltyGoals != null && match.awayPenaltyGoals != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '(${match.homePenaltyGoals} - ${match.awayPenaltyGoals})',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         
@@ -554,13 +590,27 @@ class MatchListTile extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
               ),
             ),
-            child: Text(
-              match.hasResult 
-                  ? '${match.homeGoals} - ${match.awayGoals}'
-                  : 'VS',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  match.hasResult 
+                      ? '${match.homeGoals} - ${match.awayGoals}'
+                      : 'VS',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                if (match.isLive || match.isClockRunning)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: MatchClock(
+                      match: match,
+                      showSeconds: false,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+              ],
             ),
           ),
           Expanded(

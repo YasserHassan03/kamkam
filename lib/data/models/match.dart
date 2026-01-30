@@ -41,11 +41,26 @@ class Match extends Equatable {
   
   final String? notes;
   
+  @JsonKey(name: 'home_penalty_goals')
+  final int? homePenaltyGoals;
+  
+  @JsonKey(name: 'away_penalty_goals')
+  final int? awayPenaltyGoals;
+  
   @JsonKey(name: 'created_at')
   final DateTime? createdAt;
   
   @JsonKey(name: 'updated_at')
   final DateTime? updatedAt;
+
+  @JsonKey(name: 'is_clock_running')
+  final bool isClockRunning;
+
+  @JsonKey(name: 'clock_start_time')
+  final DateTime? clockStartTime;
+
+  @JsonKey(name: 'accumulated_seconds')
+  final int accumulatedSeconds;
 
   // Bracket-related fields
   @JsonKey(name: 'round_number')
@@ -86,6 +101,8 @@ class Match extends Equatable {
     this.previousHomeGoals,
     this.previousAwayGoals,
     this.notes,
+    this.homePenaltyGoals,
+    this.awayPenaltyGoals,
     this.createdAt,
     this.updatedAt,
     this.roundNumber,
@@ -96,7 +113,21 @@ class Match extends Equatable {
     this.awayQualifier,
     this.homeTeam,
     this.awayTeam,
+    this.isClockRunning = false,
+    this.clockStartTime,
+    this.accumulatedSeconds = 0,
   });
+
+  /// The total elapsed seconds of the match.
+  /// If the clock is running, it adds the time since clockStartTime to accumulatedSeconds.
+  int get elapsedSeconds {
+    if (!isClockRunning || clockStartTime == null) {
+      return accumulatedSeconds;
+    }
+    final now = DateTime.now();
+    final diff = now.difference(clockStartTime!).inSeconds;
+    return accumulatedSeconds + diff;
+  }
 
   /// Whether this match has a result
   bool get hasResult => 
@@ -110,8 +141,14 @@ class Match extends Equatable {
       status == MatchStatus.scheduled && 
       (kickoffTime == null || kickoffTime!.isAfter(DateTime.now()));
 
-  /// Get the score as a string
-  String get scoreDisplay => hasResult ? '$homeGoals - $awayGoals' : '- vs -';
+  /// Get the score as a string, including penalties if it's a draw
+  String get scoreDisplay {
+    if (!hasResult) return '- vs -';
+    if (homeGoals == awayGoals && homePenaltyGoals != null && awayPenaltyGoals != null) {
+      return '$homeGoals ($homePenaltyGoals) - $awayGoals ($awayPenaltyGoals)';
+    }
+    return '$homeGoals - $awayGoals';
+  }
 
   /// Determine if home team won
   bool? get homeWin => hasResult ? homeGoals! > awayGoals! : null;
@@ -156,6 +193,8 @@ class Match extends Equatable {
       status: _statusFromJson(json['status']?.toString() ?? 'scheduled'),
       homeGoals: (json['home_goals'] as num?)?.toInt(),
       awayGoals: (json['away_goals'] as num?)?.toInt(),
+      homePenaltyGoals: (json['home_penalty_goals'] as num?)?.toInt(),
+      awayPenaltyGoals: (json['away_penalty_goals'] as num?)?.toInt(),
       previousHomeGoals: (json['previous_home_goals'] as num?)?.toInt(),
       previousAwayGoals: (json['previous_away_goals'] as num?)?.toInt(),
       notes: json['notes']?.toString(),
@@ -173,6 +212,9 @@ class Match extends Equatable {
       awayTeam: awayTeamData is Map<String, dynamic>
           ? Team.fromJson(awayTeamData)
           : null,
+      isClockRunning: json['is_clock_running'] == true,
+      clockStartTime: safeDateTime(json['clock_start_time']),
+      accumulatedSeconds: (json['accumulated_seconds'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -198,6 +240,8 @@ class Match extends Equatable {
     MatchStatus? status,
     int? homeGoals,
     int? awayGoals,
+    int? homePenaltyGoals,
+    int? awayPenaltyGoals,
     int? previousHomeGoals,
     int? previousAwayGoals,
     String? notes,
@@ -211,6 +255,9 @@ class Match extends Equatable {
     String? awayQualifier,
     Team? homeTeam,
     Team? awayTeam,
+    bool? isClockRunning,
+    DateTime? clockStartTime,
+    int? accumulatedSeconds,
   }) {
     return Match(
       id: id ?? this.id,
@@ -222,6 +269,8 @@ class Match extends Equatable {
       status: status ?? this.status,
       homeGoals: homeGoals ?? this.homeGoals,
       awayGoals: awayGoals ?? this.awayGoals,
+      homePenaltyGoals: homePenaltyGoals ?? this.homePenaltyGoals,
+      awayPenaltyGoals: awayPenaltyGoals ?? this.awayPenaltyGoals,
       previousHomeGoals: previousHomeGoals ?? this.previousHomeGoals,
       previousAwayGoals: previousAwayGoals ?? this.previousAwayGoals,
       notes: notes ?? this.notes,
@@ -235,15 +284,19 @@ class Match extends Equatable {
       awayQualifier: awayQualifier ?? this.awayQualifier,
       homeTeam: homeTeam ?? this.homeTeam,
       awayTeam: awayTeam ?? this.awayTeam,
+      isClockRunning: isClockRunning ?? this.isClockRunning,
+      clockStartTime: clockStartTime ?? this.clockStartTime,
+      accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
     );
   }
 
   @override
   List<Object?> get props => [
     id, tournamentId, homeTeamId, awayTeamId, matchday, kickoffTime,
-    status, homeGoals, awayGoals, previousHomeGoals, previousAwayGoals,
+    status, homeGoals, awayGoals, homePenaltyGoals, awayPenaltyGoals,
+    previousHomeGoals, previousAwayGoals,
     notes, createdAt, updatedAt, roundNumber, nextMatchId, homeSeed, awaySeed, homeQualifier, awayQualifier,
-    homeTeam, awayTeam
+    homeTeam, awayTeam, isClockRunning, clockStartTime, accumulatedSeconds
   ];
 }
 

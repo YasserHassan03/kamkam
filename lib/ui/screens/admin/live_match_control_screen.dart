@@ -11,6 +11,7 @@ import '../../../data/datasources/supabase_match_repository.dart';
 import '../../../providers/tournament_providers.dart';
 import '../../../providers/player_providers.dart';
 import '../../widgets/common/loading_error_widgets.dart';
+import '../../widgets/match/match_clock.dart';
 
 /// Admin screen for controlling live matches
 class LiveMatchControlScreen extends ConsumerStatefulWidget {
@@ -147,6 +148,13 @@ class _LiveMatchControlScreenState extends ConsumerState<LiveMatchControlScreen>
                   ],
                 ),
               ),
+            
+            // Match Clock
+            MatchClock(
+              match: match,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 16),
 
             // Teams and score
             Row(
@@ -209,11 +217,17 @@ class _LiveMatchControlScreenState extends ConsumerState<LiveMatchControlScreen>
               children: [
                 Expanded(
                   child: _buildStatusButton(
-                    label: 'Start Match',
-                    icon: Icons.play_arrow,
-                    color: Colors.green,
-                    enabled: match.status == MatchStatus.scheduled,
-                    onPressed: () => _startMatch(match),
+                    label: match.status == MatchStatus.scheduled ? 'Start Match' : (match.isClockRunning ? 'Pause Clock' : 'Resume Clock'),
+                    icon: match.status == MatchStatus.scheduled ? Icons.play_arrow : (match.isClockRunning ? Icons.pause : Icons.play_arrow),
+                    color: match.isClockRunning ? Colors.orange : Colors.green,
+                    enabled: match.status == MatchStatus.scheduled || (match.status == MatchStatus.inProgress),
+                    onPressed: () {
+                      if (match.status == MatchStatus.scheduled) {
+                        _startMatch(match);
+                      } else {
+                        _toggleClock(match);
+                      }
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -232,6 +246,30 @@ class _LiveMatchControlScreenState extends ConsumerState<LiveMatchControlScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _toggleClock(Match match) async {
+    setState(() => _isProcessing = true);
+    try {
+      final repo = ref.read(matchRepositoryProvider) as SupabaseMatchRepository;
+      await repo.toggleMatchClock(match, !match.isClockRunning);
+      
+      ref.invalidate(matchByIdProvider(widget.matchId));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(match.isClockRunning ? 'Clock paused' : 'Clock resumed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
   }
 
   Widget _buildStatusButton({
@@ -539,16 +577,23 @@ class _LiveMatchControlScreenState extends ConsumerState<LiveMatchControlScreen>
 
     setState(() => _isProcessing = true);
     try {
-      final repo = ref.read(matchRepositoryProvider) as SupabaseMatchRepository;
-      await repo.endMatch(widget.matchId);
-      ref.invalidate(matchesByTournamentProvider(match.tournamentId));
-      ref.invalidate(upcomingMatchesProvider(match.tournamentId));
-      ref.invalidate(recentResultsProvider(match.tournamentId));
-      ref.invalidate(liveMatchesByTournamentProvider(match.tournamentId));
-      ref.invalidate(matchByIdProvider(widget.matchId));
-      if (mounted) {
+      final result = await ref.read(
+        updateMatchResultProvider(UpdateResultRequest(
+          matchId: widget.matchId,
+          tournamentId: match.tournamentId,
+          homeGoals: match.homeGoals ?? 0,
+          awayGoals: match.awayGoals ?? 0,
+        )).future,
+      );
+
+      if (mounted && result.success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Match ended!')),
+          const SnackBar(content: Text('Match ended and standings updated!')),
+        );
+        context.pop(); // Go back after ending match
+      } else if (mounted && !result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error ending match: ${result.error}')),
         );
       }
     } catch (e) {

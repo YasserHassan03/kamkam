@@ -8,6 +8,7 @@ import '../data/models/match.dart';
 import '../data/repositories/match_repository.dart';
 import 'repository_providers.dart';
 import 'standing_providers.dart';
+import 'team_providers.dart';
 
 /// Matches by tournament provider
 final matchesByTournamentProvider =
@@ -80,6 +81,20 @@ void invalidateMatchProviders(dynamic ref, String tournamentId) {
   ref.invalidate(liveMatchesStreamProvider(tournamentId));
 }
 
+/// Comprehensive tournament data invalidation
+void invalidateTournamentData(dynamic ref, String tournamentId) {
+  // Matches
+  invalidateMatchProviders(ref, tournamentId);
+  ref.invalidate(bracketByTournamentProvider(tournamentId));
+  
+  // Standings
+  ref.invalidate(standingsByTournamentProvider(tournamentId));
+  
+  // Teams
+  ref.invalidate(teamsByTournamentProvider(tournamentId));
+  ref.invalidate(teamCountProvider(tournamentId));
+}
+
 /// Create match request class
 class CreateMatchRequest {
   final Match match;
@@ -105,11 +120,15 @@ class UpdateResultRequest {
   final String tournamentId;
   final int homeGoals;
   final int awayGoals;
+  final int? homePenaltyGoals;
+  final int? awayPenaltyGoals;
   UpdateResultRequest({
     required this.matchId,
     required this.tournamentId,
     required this.homeGoals,
     required this.awayGoals,
+    this.homePenaltyGoals,
+    this.awayPenaltyGoals,
   });
 }
 
@@ -160,13 +179,13 @@ final updateMatchResultProvider =
     matchId: request.matchId,
     homeGoals: request.homeGoals,
     awayGoals: request.awayGoals,
+    homePenaltyGoals: request.homePenaltyGoals,
+    awayPenaltyGoals: request.awayPenaltyGoals,
   );
   
   if (result.success) {
-    invalidateMatchProviders(ref, request.tournamentId);
+    invalidateTournamentData(ref, request.tournamentId);
     ref.invalidate(matchByIdProvider(request.matchId));
-    // Also invalidate standings since they're updated transactionally
-    ref.invalidate(standingsByTournamentProvider(request.tournamentId));
   }
   
   return result;
@@ -186,7 +205,7 @@ final generateFixturesProvider =
     final result = FixtureGenerationResult.fromJson(response);
 
     if (result.success) {
-      invalidateMatchProviders(ref, request.tournamentId);
+      invalidateTournamentData(ref, request.tournamentId);
     }
 
     return result;
@@ -202,7 +221,7 @@ final deleteAllFixturesProvider =
     FutureProvider.family<void, String>((ref, tournamentId) async {
   final repo = ref.watch(matchRepositoryProvider);
   await repo.deleteAllFixtures(tournamentId);
-  invalidateMatchProviders(ref, tournamentId);
+  invalidateTournamentData(ref, tournamentId);
 });
 
 /// Generate knockout stage for group_knockout tournaments (after group stage completion)
@@ -211,8 +230,7 @@ final generateGroupKnockoutKnockoutsProvider =
   final repo = ref.watch(matchRepositoryProvider);
   final result = await repo.generateGroupKnockoutKnockouts(tournamentId: tournamentId);
   if (result.success) {
-    invalidateMatchProviders(ref, tournamentId);
-    ref.invalidate(bracketByTournamentProvider(tournamentId));
+    invalidateTournamentData(ref, tournamentId);
   }
   return result;
 });

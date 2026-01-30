@@ -112,24 +112,24 @@ class DashboardScreen extends ConsumerWidget {
                     _QuickActionCard(
                       icon: Icons.business,
                       label: 'New Organisation',
-                      onTap: () => context.go('/admin/organisations/new'),
+                      onTap: () => context.push('/admin/organisations/new'),
                     ),
                     _QuickActionCard(
                       icon: Icons.emoji_events,
                       label: 'New Tournament',
-                      onTap: () => context.go('/admin/tournaments/new'),
+                      onTap: () => context.push('/admin/tournaments/new'),
                     ),
                     if (isAdmin) ...[
                       _QuickActionCard(
                         icon: Icons.admin_panel_settings,
                         label: 'User Management',
                         badge: pendingUsersAsync.value?.length ?? 0,
-                        onTap: () => context.go('/admin/users'),
+                        onTap: () => context.push('/admin/users'),
                       ),
                       _QuickActionCard(
                         icon: Icons.visibility,
                         label: 'Tournament Management',
-                        onTap: () => context.go('/admin/tournaments/manage'),
+                        onTap: () => context.push('/admin/tournaments/manage'),
                       ),
                     ],
                   ],
@@ -159,7 +159,7 @@ class DashboardScreen extends ConsumerWidget {
                           title: const Text('No organisations yet'),
                           subtitle: const Text('Create your first organisation'),
                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () => context.go('/admin/organisations/new'),
+                          onTap: () => context.push('/admin/organisations/new'),
                         ),
                       );
                     }
@@ -179,7 +179,7 @@ class DashboardScreen extends ConsumerWidget {
                               title: Text(org.name),
                               subtitle: Text(org.ownerEmail),
                               trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => context.go('/admin/organisations/${org.id}'),
+                              onTap: () => context.push('/admin/organisations/${org.id}'),
                             ),
                           ),
                         );
@@ -195,7 +195,7 @@ class DashboardScreen extends ConsumerWidget {
                 if (orgsAsync.hasValue && orgsAsync.value!.length > 3) ...[
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => context.go('/admin/organisations'),
+                    onPressed: () => context.push('/admin/organisations'),
                     child: const Text('View all organisations'),
                   ),
                 ],
@@ -218,7 +218,7 @@ class DashboardScreen extends ConsumerWidget {
                           title: const Text('No tournaments yet'),
                           subtitle: const Text('Create your first tournament'),
                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () => context.go('/admin/tournaments/new'),
+                          onTap: () => context.push('/admin/tournaments/new'),
                         ),
                       );
                     }
@@ -256,7 +256,7 @@ class DashboardScreen extends ConsumerWidget {
                               title: Text(tournament.name),
                               subtitle: Text('${tournament.rules.type.displayName} · ${tournament.status.displayName}'),
                               trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => context.go('/admin/tournaments/${tournament.id}'),
+                              onTap: () => context.push('/admin/tournaments/${tournament.id}'),
                             ),
                           ),
                         );
@@ -400,7 +400,7 @@ class _PendingApprovalsSection extends StatelessWidget {
                 title: Text('${users.length} user(s) waiting for approval'),
                 subtitle: const Text('Review and approve new organisers'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => GoRouter.of(context).go('/admin/users'),
+                onTap: () => GoRouter.of(context).push('/admin/users'),
               ),
             ),
           ],

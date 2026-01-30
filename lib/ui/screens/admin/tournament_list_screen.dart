@@ -33,7 +33,7 @@ class TournamentListScreen extends ConsumerWidget {
                   title: 'No Tournaments',
                   subtitle: 'Create your first tournament to get started',
                   action: FilledButton.icon(
-                    onPressed: () => context.go('/admin/tournaments/new'),
+                    onPressed: () => context.push('/admin/tournaments/new'),
                     icon: const Icon(Icons.add),
                     label: const Text('Create Tournament'),
                   ),
@@ -50,7 +50,7 @@ class TournamentListScreen extends ConsumerWidget {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
-                    onTap: () => context.go('/admin/tournaments/${tournament.id}'),
+                    onTap: () => context.push('/admin/tournaments/${tournament.id}'),
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -119,7 +119,7 @@ class TournamentListScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/admin/tournaments/new'),
+        onPressed: () => context.push('/admin/tournaments/new'),
         icon: const Icon(Icons.add),
         label: const Text('New'),
       ),

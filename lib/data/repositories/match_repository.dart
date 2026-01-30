@@ -33,6 +33,8 @@ class MatchResultUpdateResult {
   final String matchId;
   final int homeGoals;
   final int awayGoals;
+  final int? homePenaltyGoals;
+  final int? awayPenaltyGoals;
   final String? error;
 
   const MatchResultUpdateResult({
@@ -40,6 +42,8 @@ class MatchResultUpdateResult {
     required this.matchId,
     required this.homeGoals,
     required this.awayGoals,
+    this.homePenaltyGoals,
+    this.awayPenaltyGoals,
     this.error,
   });
 
@@ -49,6 +53,8 @@ class MatchResultUpdateResult {
       matchId: json['match_id'] as String? ?? '',
       homeGoals: json['home_goals'] as int? ?? 0,
       awayGoals: json['away_goals'] as int? ?? 0,
+      homePenaltyGoals: json['home_penalty_goals'] as int?,
+      awayPenaltyGoals: json['away_penalty_goals'] as int?,
       error: json['error'] as String?,
     );
   }
@@ -115,6 +121,8 @@ abstract class MatchRepository {
     required String matchId,
     required int homeGoals,
     required int awayGoals,
+    int? homePenaltyGoals,
+    int? awayPenaltyGoals,
   });
 
   /// Generate round-robin fixtures using the RPC function
@@ -141,4 +149,10 @@ abstract class MatchRepository {
 
   /// Get all live matches for a tournament
   Future<List<Match>> getLiveMatches(String tournamentId);
+
+  /// Get all matches for a specific team
+  Future<List<Match>> getMatchesByTeam(String teamId);
+
+  /// Toggle the match clock (start/pause/resume)
+  Future<Match> toggleMatchClock(Match match, bool start);
 }

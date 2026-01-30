@@ -500,7 +500,7 @@ class _TournamentManagementCardState extends ConsumerState<_TournamentManagement
                 );
               },
             ),
-            onTap: () => context.go('/admin/tournaments/${tournament.id}'),
+            onTap: () => context.push('/admin/tournaments/${tournament.id}'),
           ),
           
           // Sponsor section

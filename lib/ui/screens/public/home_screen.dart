@@ -237,10 +237,19 @@ class _AppHeader extends StatelessWidget {
                     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.sports_soccer_rounded,
-                    size: 26,
-                    color: Theme.of(context).colorScheme.primary,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/icons/app_icon.png',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.sports_soccer_rounded,
+                        size: 26,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -269,7 +278,7 @@ class _AppHeader extends StatelessWidget {
           // Action Button
           if (isAuthenticated)
             FilledButton.icon(
-              onPressed: () => context.go('/admin'),
+              onPressed: () => context.push('/admin'),
               icon: const Icon(Icons.dashboard_rounded, size: 18),
               label: const Text('Dashboard'),
               style: FilledButton.styleFrom(
@@ -278,7 +287,7 @@ class _AppHeader extends StatelessWidget {
             )
           else
             FilledButton.icon(
-              onPressed: () => context.go('/login'),
+              onPressed: () => context.push('/login'),
               icon: const Icon(Icons.login_rounded, size: 18),
               label: const Text('Login'),
               style: FilledButton.styleFrom(
@@ -436,8 +445,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Tournament card
-class _TournamentCard extends ConsumerWidget {
+class _TournamentCard extends ConsumerStatefulWidget {
   final Tournament tournament;
   final List<Organisation> organisations;
   final bool isFavorite;
@@ -449,27 +457,45 @@ class _TournamentCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final organiserName = _getOrganiserName(tournament, organisations);
-    final formatLabel = _getFormatLabel(tournament.format);
-    final statusColor = _getStatusColor(tournament.status);
+  ConsumerState<_TournamentCard> createState() => _TournamentCardState();
+}
+
+class _TournamentCardState extends ConsumerState<_TournamentCard> {
+  bool _isNavigating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final organiserName = _getOrganiserName(widget.tournament, widget.organisations);
+    final formatLabel = _getFormatLabel(widget.tournament.format);
+    final statusColor = _getStatusColor(widget.tournament.status);
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.go('/tournament/${tournament.id}'),
+          onTap: () async {
+            if (_isNavigating) return;
+            setState(() => _isNavigating = true);
+            
+            context.push('/tournament/${widget.tournament.id}');
+            
+            // Short delay to prevent rapid double-taps while transition is happening
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (mounted) {
+              setState(() => _isNavigating = false);
+            }
+          },
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
               color: Theme.of(context).cardTheme.color,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isFavorite 
+                color: widget.isFavorite 
                     ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)
                     : Theme.of(context).colorScheme.outlineVariant,
-                width: isFavorite ? 1.5 : 1,
+                width: widget.isFavorite ? 1.5 : 1,
               ),
             ),
             child: Column(
@@ -526,7 +552,7 @@ class _TournamentCard extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    tournament.status.displayName,
+                                    widget.tournament.status.displayName,
                                     style: TextStyle(
                                       color: statusColor,
                                       fontSize: 11,
@@ -539,8 +565,8 @@ class _TournamentCard extends ConsumerWidget {
                             const Spacer(),
                             // Favorite button
                             _FavoriteButton(
-                              tournamentId: tournament.id,
-                              isFavorite: isFavorite,
+                              tournamentId: widget.tournament.id,
+                              isFavorite: widget.isFavorite,
                             ),
                           ],
                         ),
@@ -548,7 +574,7 @@ class _TournamentCard extends ConsumerWidget {
                         
                         // Tournament name
                         Text(
-                          tournament.name,
+                          widget.tournament.name,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -584,7 +610,7 @@ class _TournamentCard extends ConsumerWidget {
                         Row(
                           children: [
                             // Venue
-                            if (tournament.venue != null && tournament.venue!.isNotEmpty) ...[
+                            if (widget.tournament.venue != null && widget.tournament.venue!.isNotEmpty) ...[
                               Expanded(
                                 child: Row(
                                   children: [
@@ -596,7 +622,7 @@ class _TournamentCard extends ConsumerWidget {
                                     const SizedBox(width: 5),
                                     Expanded(
                                       child: Text(
-                                        tournament.venue!,
+                                        widget.tournament.venue!,
                                         style: Theme.of(context).textTheme.bodySmall,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -617,8 +643,8 @@ class _TournamentCard extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
-                                  tournament.startDate != null 
-                                      ? _formatDate(tournament.startDate!) 
+                                  widget.tournament.startDate != null 
+                                      ? _formatDate(widget.tournament.startDate!) 
                                       : 'TBD',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
@@ -633,7 +659,7 @@ class _TournamentCard extends ConsumerWidget {
                   // Organisation logo on the right
                   Builder(
                     builder: (context) {
-                      final org = organisations.where((o) => o.id == tournament.orgId).firstOrNull;
+                      final org = widget.organisations.where((o) => o.id == widget.tournament.orgId).firstOrNull;
                       if (org?.logoUrl != null) {
                         return Padding(
                           padding: const EdgeInsets.only(left: 12),
@@ -657,7 +683,7 @@ class _TournamentCard extends ConsumerWidget {
             ),
             
             // Sponsored by section (only if sponsor logo exists)
-            if (tournament.sponsorLogoUrl != null)
+            if (widget.tournament.sponsorLogoUrl != null)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -682,7 +708,7 @@ class _TournamentCard extends ConsumerWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: Image.network(
-                          tournament.sponsorLogoUrl!,
+                          widget.tournament.sponsorLogoUrl!,
                           height: 40,
                           fit: BoxFit.contain,
                           alignment: Alignment.centerLeft,
@@ -698,7 +724,7 @@ class _TournamentCard extends ConsumerWidget {
         ),
       ),
     ),
-  );
+    );
   }
 
   String _getOrganiserName(Tournament tournament, List<Organisation> orgs) {

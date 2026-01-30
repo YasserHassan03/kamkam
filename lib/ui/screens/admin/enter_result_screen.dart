@@ -28,11 +28,14 @@ class EnterResultScreen extends ConsumerStatefulWidget {
 class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
   int _homeScore = 0;
   int _awayScore = 0;
+  int? _homePenaltyScore;
+  int? _awayPenaltyScore;
   bool _isLoading = false;
   bool _scoresInitialized = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _dateTimeInitialized = false;
+  bool _isNavigating = false;
 
   Future<void> _updateMatchDateTime(Match match) async {
     if (_selectedDate == null) return;
@@ -60,6 +63,26 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
   }
 
   Future<void> _handleSubmit() async {
+    // Basic validation for knockout draws: must have penalty winner
+    final match = ref.read(matchByIdProvider(widget.matchId)).asData?.value;
+    final isKnockoutMatch = match?.roundNumber != null;
+    final isDraw = _homeScore == _awayScore;
+
+    if (isKnockoutMatch && isDraw) {
+      if (_homePenaltyScore == null || _awayPenaltyScore == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter penalty scores for knockout draws')),
+        );
+        return;
+      }
+      if (_homePenaltyScore == _awayPenaltyScore) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Penalty scores cannot be equal')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -69,6 +92,8 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
           tournamentId: widget.tournamentId,
           homeGoals: _homeScore,
           awayGoals: _awayScore,
+          homePenaltyGoals: _homePenaltyScore,
+          awayPenaltyGoals: _awayPenaltyScore,
         )).future,
       );
 
@@ -136,7 +161,8 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
           }
 
           // REDIRECT TO LIVE MODE IF MATCH IS IN PROGRESS
-          if (match.isLive) {
+          if (match.isLive && !_isNavigating) {
+            _isNavigating = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 context.pushReplacement('/admin/live-match/${match.id}');
@@ -152,6 +178,8 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                 setState(() {
                   _homeScore = match.homeGoals ?? 0;
                   _awayScore = match.awayGoals ?? 0;
+                  _homePenaltyScore = match.homePenaltyGoals;
+                  _awayPenaltyScore = match.awayPenaltyGoals;
                   _scoresInitialized = true;
                 });
               }
@@ -174,6 +202,9 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
               }
             });
           }
+
+          final isKnockoutMatch = match.roundNumber != null;
+          final isDraw = _homeScore == _awayScore;
 
           return teamsAsync.when(
             data: (teams) {
@@ -239,8 +270,11 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: () => context.push('/admin/live-match/${match.id}'),
+                               child: FilledButton.icon(
+                                onPressed: () {
+                                  _isNavigating = true;
+                                  context.pushReplacement('/admin/live-match/${match.id}');
+                                },
                                 icon: const Icon(Icons.play_arrow_rounded),
                                 label: const Text('START LIVE MODE'),
                               ),
@@ -418,6 +452,45 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                               ),
                             ],
                           ),
+
+                          // Penalty Shootout section (for knockout draws)
+                          if (isKnockoutMatch && isDraw) ...[
+                            const SizedBox(height: 40),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'PENALTY SHOOTOUT',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.primary,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _PenaltyInput(
+                                    score: _homePenaltyScore,
+                                    onChanged: (val) => setState(() => _homePenaltyScore = val),
+                                    label: homeTeam.shortName ?? homeTeam.name,
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Text(
+                                    '-',
+                                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.outline,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  _PenaltyInput(
+                                    score: _awayPenaltyScore,
+                                    onChanged: (val) => setState(() => _awayPenaltyScore = val),
+                                    label: awayTeam.shortName ?? awayTeam.name,
+                                  ),
+                                ],
+                            ),
+                          ],
                           
                           const SizedBox(height: 32),
                           
@@ -480,6 +553,16 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                             : null,
                                       ),
                                     ),
+                                    if (isKnockoutMatch && isDraw && _homePenaltyScore != null)
+                                      Text(
+                                        ' (${_homePenaltyScore})',
+                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: (_homePenaltyScore ?? 0) > (_awayPenaltyScore ?? 0)
+                                              ? AppTheme.winColor
+                                              : null,
+                                        ),
+                                      ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 16),
                                       child: Text(
@@ -490,6 +573,16 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                         ),
                                       ),
                                     ),
+                                    if (isKnockoutMatch && isDraw && _awayPenaltyScore != null)
+                                      Text(
+                                        '(${_awayPenaltyScore}) ',
+                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: (_awayPenaltyScore ?? 0) > (_homePenaltyScore ?? 0)
+                                              ? AppTheme.winColor
+                                              : null,
+                                        ),
+                                      ),
                                     Text(
                                       '$_awayScore',
                                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -505,6 +598,8 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                                 _ResultBadge(
                                   homeScore: _homeScore,
                                   awayScore: _awayScore,
+                                  homePenaltyScore: _homePenaltyScore,
+                                  awayPenaltyScore: _awayPenaltyScore,
                                   homeTeam: homeTeam.name,
                                   awayTeam: awayTeam.name,
                                 ),
@@ -525,7 +620,7 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Standings will update automatically',
+                                  'Standings and brackets will update automatically',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context).colorScheme.outline,
                                   ),
@@ -553,6 +648,51 @@ class _EnterResultScreenState extends ConsumerState<EnterResultScreen> {
           onRetry: () => ref.invalidate(matchByIdProvider(widget.matchId)),
         ),
       ),
+    );
+  }
+}
+
+/// Penalty input field
+class _PenaltyInput extends StatelessWidget {
+  final int? score;
+  final ValueChanged<int?> onChanged;
+  final String label;
+
+  const _PenaltyInput({
+    required this.score,
+    required this.onChanged,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 80,
+          child: TextField(
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              hintText: 'P',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            onChanged: (value) {
+              onChanged(int.tryParse(value));
+            },
+            controller: TextEditingController(text: score?.toString() ?? '')
+              ..selection = TextSelection.collapsed(offset: (score?.toString() ?? '').length),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -758,12 +898,16 @@ class _ScoreButton extends StatelessWidget {
 class _ResultBadge extends StatelessWidget {
   final int homeScore;
   final int awayScore;
+  final int? homePenaltyScore;
+  final int? awayPenaltyScore;
   final String homeTeam;
   final String awayTeam;
 
   const _ResultBadge({
     required this.homeScore,
     required this.awayScore,
+    this.homePenaltyScore,
+    this.awayPenaltyScore,
     required this.homeTeam,
     required this.awayTeam,
   });
@@ -779,6 +923,17 @@ class _ResultBadge extends StatelessWidget {
     } else if (awayScore > homeScore) {
       text = '$awayTeam wins';
       color = AppTheme.winColor;
+    } else if (homePenaltyScore != null && awayPenaltyScore != null) {
+      if (homePenaltyScore! > awayPenaltyScore!) {
+        text = '$homeTeam wins (P)';
+        color = AppTheme.winColor;
+      } else if (awayPenaltyScore! > homePenaltyScore!) {
+        text = '$awayTeam wins (P)';
+        color = AppTheme.winColor;
+      } else {
+        text = 'Draw';
+        color = AppTheme.drawColor;
+      }
     } else {
       text = 'Draw';
       color = AppTheme.drawColor;
