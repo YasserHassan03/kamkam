@@ -443,20 +443,21 @@ class _OrganisationFormScreenState extends ConsumerState<OrganisationFormScreen>
         Icon(
           Icons.add_photo_alternate_outlined,
           size: 48,
-          color: theme.colorScheme.outline,
+          color: theme.colorScheme.primary,
         ),
         const SizedBox(height: 8),
         Text(
           'Tap to upload logo',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.outline,
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Recommended: 512x512px',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.outline.withValues(alpha: 0.7),
+          'PNG or JPG (Max 2MB)',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.outline,
           ),
         ),
       ],

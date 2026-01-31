@@ -759,10 +759,27 @@ class _FixturesTab extends ConsumerWidget {
                   );
                 }
 
+                final sortedMatches = List<Match>.from(matches)..sort((a, b) {
+                  final aUpcoming = a.status != MatchStatus.finished && a.status != MatchStatus.cancelled;
+                  final bUpcoming = b.status != MatchStatus.finished && b.status != MatchStatus.cancelled;
+                  
+                  if (aUpcoming != bUpcoming) {
+                    return aUpcoming ? -1 : 1;
+                  }
+                  
+                  if (aUpcoming) {
+                    // Both upcoming: Matchday ASC
+                    return (a.matchday ?? 0).compareTo(b.matchday ?? 0);
+                  } else {
+                    // Both finished: Matchday DESC
+                    return (b.matchday ?? 0).compareTo(a.matchday ?? 0);
+                  }
+                });
+
                 return ListView.builder(
-                  itemCount: matches.length,
+                  itemCount: sortedMatches.length,
                   itemBuilder: (context, index) {
-                    final match = matches[index];
+                    final match = sortedMatches[index];
                     return MatchCard(
                       match: match,
                       showDate: true,
@@ -884,6 +901,11 @@ class _TournamentAdminScreenState extends ConsumerState<TournamentAdminScreen> w
               },
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_rounded),
+                tooltip: 'Edit Tournament',
+                onPressed: () => context.push('/admin/tournaments/${tournament.id}/edit'),
+              ),
               // Admin-only: Hide/Show tournament toggle
               Consumer(
                 builder: (context, ref, _) {

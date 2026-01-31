@@ -45,27 +45,23 @@ class FixturesScreen extends ConsumerWidget {
               );
             }
 
-            // Filter to show only scheduled matches
-            final fixtures = matches.where((m) => 
-                m.status == MatchStatus.scheduled || 
-                m.status == MatchStatus.postponed).toList();
-            
-            if (fixtures.isEmpty) {
-              return const EmptyStateWidget(
-                icon: Icons.check_circle,
-                title: 'All Matches Played',
-                subtitle: 'Check out the results!',
-              );
-            }
-
             // Group by matchday
             final Map<int, List<Match>> grouped = {};
-            for (final match in fixtures) {
+            for (final match in matches) {
               final day = match.matchday ?? 0;
               grouped.putIfAbsent(day, () => []).add(match);
             }
 
-            final sortedDays = grouped.keys.toList()..sort();
+            // Split into upcoming and past matchdays
+            final upcomingDays = grouped.keys.where((day) => 
+              grouped[day]!.any((m) => m.status != MatchStatus.finished && m.status != MatchStatus.cancelled)
+            ).toList()..sort();
+
+            final finishedDays = grouped.keys.where((day) => 
+              grouped[day]!.every((m) => m.status == MatchStatus.finished || m.status == MatchStatus.cancelled)
+            ).toList()..sort((a, b) => b.compareTo(a));
+
+            final sortedDays = [...upcomingDays, ...finishedDays];
 
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),

@@ -70,7 +70,7 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
     _nameController.text = tournament.name;
     _seasonYearController.text = tournament.seasonYear.toString();
     _venueController.text = tournament.venue ?? '';
-    _selectedOrgId = tournament.ownerId;
+    _selectedOrgId = tournament.orgId;
     _selectedType = tournament.rules.type;
     _selectedStatus = tournament.status;
     _startDate = tournament.startDate;
@@ -256,7 +256,11 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
 
       if (mounted) {
         // Navigate after clearing loading state
-        context.go('/admin');
+        if (isEditing) {
+          context.pop();
+        } else {
+          context.go('/admin');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -327,7 +331,9 @@ class _TournamentFormScreenState extends ConsumerState<TournamentFormScreen> {
         title: Text(isEditing ? 'Edit Tournament' : 'New Tournament'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.go('/admin'),
+          onPressed: () => isEditing 
+            ? context.pop() 
+            : context.go('/admin'),
         ),
       ),
       body: isEditing

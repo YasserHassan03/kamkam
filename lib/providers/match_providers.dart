@@ -277,3 +277,23 @@ final bracketByTournamentProvider =
   }
 });
 
+/// Auto-refreshing bracket provider (polls every minute)
+final bracketByTournamentStreamProvider =
+    StreamProvider.family<Map<int, List<Match>>, String>((ref, tournamentId) async* {
+  // Initial load
+  final initial = await ref.watch(bracketByTournamentProvider(tournamentId).future);
+  yield initial;
+
+  // Poll every 60 seconds
+  await for (final _ in Stream.periodic(const Duration(minutes: 1))) {
+    try {
+      // Invalidate the future provider to force a fresh fetch
+      ref.invalidate(matchesByTournamentProvider(tournamentId));
+      final updated = await ref.watch(bracketByTournamentProvider(tournamentId).future);
+      yield updated;
+    } catch (e) {
+      // Continue polling on error
+    }
+  }
+});
+

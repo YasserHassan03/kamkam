@@ -177,7 +177,7 @@ class Match extends Equatable {
         if (value is DateTime) return value;
         final str = value.toString();
         if (str.isEmpty) return null;
-        return DateTime.parse(str);
+        return DateTime.parse(str).toLocal();
       } catch (e) {
         return null;
       }
@@ -225,7 +225,7 @@ class Match extends Equatable {
     'home_team_id': homeTeamId,
     'away_team_id': awayTeamId,
     'matchday': matchday,
-    'kickoff_time': kickoffTime?.toIso8601String(),
+    'kickoff_time': kickoffTime?.toUtc().toIso8601String(),
     'status': status.jsonValue,
     'notes': notes,
   };

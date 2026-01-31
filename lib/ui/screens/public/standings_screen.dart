@@ -38,11 +38,11 @@ class StandingsScreen extends ConsumerWidget {
             ),
             body: RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(bracketByTournamentProvider(tournamentId));
+                ref.invalidate(bracketByTournamentStreamProvider(tournamentId));
               },
               child: Consumer(
                 builder: (context, ref, _) {
-                  final bracketAsync = ref.watch(bracketByTournamentProvider(tournamentId));
+                  final bracketAsync = ref.watch(bracketByTournamentStreamProvider(tournamentId));
                   return bracketAsync.when(
                     data: (rounds) {
                       if (rounds.isEmpty) {
@@ -122,11 +122,11 @@ class StandingsScreen extends ConsumerWidget {
           ),
           body: RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(standingsByTournamentProvider(tournamentId));
+              ref.invalidate(standingsByTournamentStreamProvider(tournamentId));
             },
             child: Consumer(
               builder: (context, ref, _) {
-                final standingsAsync = ref.watch(standingsByTournamentProvider(tournamentId));
+                final standingsAsync = ref.watch(standingsByTournamentStreamProvider(tournamentId));
                 return standingsAsync.when(
                   data: (standings) {
                     if (standings.isEmpty) {
@@ -185,11 +185,11 @@ class _PublicGroupsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final standingsAsync = ref.watch(standingsByTournamentProvider(tournamentId));
+    final standingsAsync = ref.watch(standingsByTournamentStreamProvider(tournamentId));
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(standingsByTournamentProvider(tournamentId));
+        ref.invalidate(standingsByTournamentStreamProvider(tournamentId));
       },
       child: standingsAsync.when(
         data: (allStandings) {
@@ -286,12 +286,12 @@ class _PublicKnockoutsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bracketAsync = ref.watch(bracketByTournamentProvider(tournamentId));
+    final bracketAsync = ref.watch(bracketByTournamentStreamProvider(tournamentId));
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(matchesByTournamentProvider(tournamentId));
-        ref.invalidate(bracketByTournamentProvider(tournamentId));
+        ref.invalidate(bracketByTournamentStreamProvider(tournamentId));
       },
       child: bracketAsync.when(
         data: (rounds) {

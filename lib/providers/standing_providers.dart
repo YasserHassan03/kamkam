@@ -9,6 +9,26 @@ final standingsByTournamentProvider =
   return await repo.getStandingsWithTeams(tournamentId);
 });
 
+/// Auto-refreshing standings provider (polls every minute)
+final standingsByTournamentStreamProvider =
+    StreamProvider.family<List<Standing>, String>((ref, tournamentId) async* {
+  final repo = ref.watch(standingRepositoryProvider);
+
+  // Initial load
+  final initial = await repo.getStandingsWithTeams(tournamentId);
+  yield initial;
+
+  // Poll every 60 seconds
+  await for (final _ in Stream.periodic(const Duration(minutes: 1))) {
+    try {
+      final updated = await repo.getStandingsWithTeams(tournamentId);
+      yield updated;
+    } catch (e) {
+      // Continue polling on error
+    }
+  }
+});
+
 /// Single team standing provider
 final teamStandingProvider =
     FutureProvider.family<Standing?, ({String tournamentId, String teamId})>((ref, params) async {
