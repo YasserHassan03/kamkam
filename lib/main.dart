@@ -3,9 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/constants/app_constants.dart';
+import 'core/services/notification_service.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   // Catch all errors to prevent red screen
@@ -30,6 +33,17 @@ Future<void> main() async {
       url: AppConstants.supabaseUrl,
       anonKey: AppConstants.supabaseAnonKey,
     );
+
+    // Initialize Firebase
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      // Initialize notification service
+      await NotificationService().initialize();
+    } catch (e) {
+      debugPrint('Firebase initialization failed: $e');
+    }
 
     runApp(
       const ProviderScope(

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "319995267344",
+    "project_id": "kam-kam-82af0",
+    "storage_bucket": "kam-kam-82af0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:319995267344:android:d6f430b8febc93fd907d95",
+        "android_client_info": {
+          "package_name": "com.rondohub.rondo_hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWrtIYdCqMc4UUzXIOAjnqMJim4Z7Bm9M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

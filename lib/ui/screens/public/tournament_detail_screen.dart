@@ -6,8 +6,10 @@ import '../../../providers/standing_providers.dart';
 import '../../../providers/match_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/player_providers.dart';
+import '../../../providers/notification_providers.dart';
 import '../../../core/constants/enums.dart';
 import '../../widgets/common/loading_error_widgets.dart';
+import '../../widgets/common/follow_button.dart';
 import '../../widgets/standings/standings_table.dart';
 import '../../widgets/match/match_card.dart';
 
@@ -36,6 +38,9 @@ class TournamentDetailScreen extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             title: Text(tournament.name),
+            actions: [
+              FollowButton(tournamentId: tournamentId),
+            ],
           ),
           body: RefreshIndicator(
             onRefresh: () async {

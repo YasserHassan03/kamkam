@@ -5,6 +5,7 @@ import '../../../providers/player_providers.dart';
 import '../../../data/models/team.dart';
 import '../../../data/models/player.dart';
 import '../../widgets/common/loading_error_widgets.dart';
+import '../../widgets/common/follow_button.dart';
 
 /// Screen showing all teams in a tournament and their rosters
 class TeamsScreen extends ConsumerStatefulWidget {
@@ -153,6 +154,7 @@ class _TeamRosterCard extends ConsumerWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(team.shortName ?? ''),
+        trailing: FollowButton(teamId: team.id),
         children: [
           _RosterList(teamId: team.id),
         ],
